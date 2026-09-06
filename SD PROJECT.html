@@ -1,0 +1,2358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAP SD Order-to-Cash Simulator</title>
+<style>
+  :root{
+    --blue-90:#0a3d6e;
+    --blue-70:#0854a0;
+    --blue-50:#0a6ed1;
+    --blue-20:#d1e8ff;
+    --blue-10:#eef6ff;
+    --ink-90:#1a2733;
+    --ink-70:#3c4c5c;
+    --ink-50:#6b7c8c;
+    --ink-30:#a6b4c0;
+    --line:#dde3e9;
+    --bg:#f4f6f8;
+    --card:#ffffff;
+    --green:#1a7f4e;
+    --green-bg:#e6f5ec;
+    --amber:#a85d00;
+    --amber-bg:#fdf1e0;
+    --red:#b3261e;
+    --red-bg:#fbe9e8;
+    --grey-bg:#eceff2;
+    --radius:6px;
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--ink-90);
+    font-size:14px;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{display:flex;height:100vh;overflow:hidden}
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    width:220px;flex-shrink:0;background:var(--blue-90);
+    color:#dce9f5;display:flex;flex-direction:column;
+    overflow-y:auto;
+  }
+  #sidebar .brand{
+    padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.12);
+  }
+  #sidebar .brand .t1{font-size:12px;letter-spacing:.04em;color:#8fb7dd;font-weight:600}
+  #sidebar .brand .t2{font-size:16px;font-weight:700;color:#fff;margin-top:2px}
+  #sidebar nav{padding:10px 0;flex:1}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 16px;cursor:pointer;color:#cfe0f0;
+    font-size:13.5px;border-left:3px solid transparent;
+    user-select:none;
+  }
+  .nav-item .ic{width:18px;text-align:center;font-size:14px;opacity:.9}
+  .nav-item:hover{background:rgba(255,255,255,0.06);color:#fff}
+  .nav-item.active{background:rgba(255,255,255,0.12);color:#fff;border-left-color:#5aa9f2;font-weight:600}
+  .nav-sec{padding:14px 16px 4px;font-size:10.5px;letter-spacing:.06em;color:#6f93b5;text-transform:uppercase}
+
+  /* ---------- Main ---------- */
+  #main{flex:1;display:flex;flex-direction:column;min-width:0}
+  #topbar{
+    height:56px;background:var(--card);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0;
+  }
+  #topbar .app-title{font-weight:700;font-size:15px;color:var(--ink-90)}
+  #topbar .search-wrap{flex:1;max-width:420px;position:relative}
+  #topbar input.gsearch{
+    width:100%;padding:8px 12px 8px 32px;border:1px solid var(--line);border-radius:var(--radius);
+    font-size:13px;background:var(--bg);
+  }
+  #topbar input.gsearch:focus{outline:none;border-color:var(--blue-50);background:#fff}
+  #topbar .search-wrap::before{
+    content:'⌕';position:absolute;left:11px;top:6px;color:var(--ink-50);font-size:15px;
+  }
+  #topbar .spacer{flex:1}
+  #topbar .icon-btn{
+    width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    color:var(--ink-70);cursor:pointer;font-size:15px;position:relative;
+  }
+  #topbar .icon-btn:hover{background:var(--bg)}
+  #topbar .user-chip{
+    display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border-radius:20px;cursor:default;
+  }
+  #topbar .avatar{width:26px;height:26px;border-radius:50%;background:var(--blue-50);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+  #content{flex:1;overflow-y:auto;padding:22px 26px}
+
+  .crumbs{font-size:12px;color:var(--ink-50);margin-bottom:6px}
+  .crumbs span.cur{color:var(--ink-90);font-weight:600}
+  h1.page-title{font-size:20px;margin:0 0 4px;color:var(--ink-90)}
+  .page-sub{color:var(--ink-50);font-size:13px;margin-bottom:18px}
+  .page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius);
+    font-size:13px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--ink-70);
+    cursor:pointer;white-space:nowrap;
+  }
+  .btn:hover{background:var(--bg)}
+  .btn.primary{background:var(--blue-50);border-color:var(--blue-50);color:#fff}
+  .btn.primary:hover{background:var(--blue-70)}
+  .btn.danger{color:var(--red);border-color:#f0c9c7}
+  .btn.danger:hover{background:var(--red-bg)}
+  .btn.small{padding:5px 10px;font-size:12px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-link{background:none;border:none;color:var(--blue-50);font-weight:600;cursor:pointer;padding:0;font-size:13px}
+  .btn-link:hover{text-decoration:underline}
+
+  /* ---------- Cards / KPI ---------- */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;cursor:pointer}
+  .kpi:hover{border-color:var(--blue-50)}
+  .kpi .v{font-size:24px;font-weight:700;color:var(--ink-90)}
+  .kpi .l{font-size:12px;color:var(--ink-50);margin-top:2px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+  .card h3{margin:0 0 12px;font-size:14px;color:var(--ink-90)}
+
+  /* ---------- Pipeline ---------- */
+  .pipeline{display:flex;flex-wrap:wrap;gap:0;align-items:center}
+  .pipe-stage{
+    background:var(--blue-10);border:1px solid var(--blue-20);color:var(--blue-70);
+    padding:9px 14px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;
+  }
+  .pipe-stage:hover{background:var(--blue-20)}
+  .pipe-arrow{color:var(--ink-30);padding:0 8px;font-size:14px}
+
+  /* ---------- Tables ---------- */
+  .table-toolbar{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+  .table-toolbar input[type=text], .table-toolbar select{
+    padding:7px 10px;border:1px solid var(--line);border-radius:var(--radius);font-size:13px;background:#fff;
+  }
+  /* ---------- Customer Master Search ---------- */
+  .customer-search-toolbar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .customer-search-box{
+    position:relative;
+    width:min(420px,100%);
+    display:flex;
+    align-items:center;
+  }
+  .customer-search-box #cust-search,
+  .customer-search-box #mat-search{
+    width:100%;
+    height:38px;
+    padding:8px 38px 8px 34px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff;
+    color:var(--ink-90);
+    font-size:13px;
+    transition:border-color .15s, box-shadow .15s;
+    box-sizing:border-box;
+  }
+  .customer-search-box #cust-search:focus,
+  .customer-search-box #mat-search:focus{
+    outline:none;
+    border-color:var(--blue-50);
+    box-shadow:0 0 0 3px rgba(10,110,209,.10);
+  }
+  .customer-search-icon{
+    position:absolute;
+    left:11px;
+    z-index:1;
+    color:var(--ink-50);
+    font-size:16px;
+    pointer-events:none;
+  }
+  .customer-clear-btn{
+    position:absolute;
+    right:7px;
+    width:25px;
+    height:25px;
+    border:0;
+    border-radius:50%;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:var(--grey-bg);
+    color:var(--ink-70);
+    cursor:pointer;
+    font-size:18px;
+    line-height:1;
+    padding:0;
+  }
+  .customer-clear-btn:hover{
+    background:var(--blue-20);
+    color:var(--blue-70);
+  }
+  .customer-search-box.has-value .customer-clear-btn{
+    display:flex;
+  }
+  .customer-filter{
+    height:38px;
+    min-width:145px;
+    padding:7px 34px 7px 11px !important;
+    border-radius:8px !important;
+    background:#fff;
+  }
+  table.grid{width:100%;border-collapse:collapse;font-size:13px}
+  table.grid thead th{
+    text-align:left;padding:9px 12px;background:var(--bg);color:var(--ink-50);
+    font-size:11.5px;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid var(--line);
+    cursor:pointer;white-space:nowrap;
+  }
+  table.grid thead th:hover{color:var(--ink-90)}
+  table.grid tbody td{padding:10px 12px;border-bottom:1px solid var(--line);color:var(--ink-90);white-space:nowrap}
+  table.grid tbody tr:hover{background:var(--blue-10)}
+  .cell-link{color:var(--blue-50);font-weight:600;cursor:pointer}
+  .cell-link:hover{text-decoration:underline}
+  .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius)}
+  .table-wrap table.grid{border:none}
+  .table-wrap thead th:first-child{border-top-left-radius:var(--radius)}
+
+  .badge{display:inline-block;padding:3px 9px;border-radius:12px;font-size:11.5px;font-weight:600}
+  .badge.grey{background:var(--grey-bg);color:var(--ink-70)}
+  .badge.blue{background:var(--blue-20);color:var(--blue-70)}
+  .badge.green{background:var(--green-bg);color:var(--green)}
+  .badge.amber{background:var(--amber-bg);color:var(--amber)}
+  .badge.red{background:var(--red-bg);color:var(--red)}
+
+  .empty-state{text-align:center;padding:50px 20px;color:var(--ink-50)}
+  .empty-state .ic{font-size:34px;margin-bottom:10px}
+  .empty-state .msg{font-size:13.5px;margin-bottom:14px}
+
+  /* ---------- Forms ---------- */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+  .form-grid.one{grid-template-columns:1fr}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:12px;font-weight:600;color:var(--ink-70)}
+  .field label .req{color:var(--red)}
+  .field input, .field select, .field textarea{
+    padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);font-size:13px;
+    font-family:inherit;background:#fff;color:var(--ink-90);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--blue-50)}
+  .field .err{color:var(--red);font-size:11.5px}
+  .field-note{font-size:11.5px;color:var(--ink-50)}
+  fieldset.fgroup{border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px 16px;margin:0 0 4px}
+  fieldset.fgroup legend{font-size:12px;font-weight:700;color:var(--blue-70);padding:0 6px}
+
+  /* ---------- Modal ---------- */
+  #modal-backdrop{
+    position:fixed;inset:0;background:rgba(20,30,40,0.45);display:none;
+    align-items:flex-start;justify-content:center;z-index:1000;padding:40px 16px;overflow-y:auto;
+  }
+  #modal-backdrop.show{display:flex}
+  .modal{background:#fff;border-radius:8px;width:100%;max-width:640px;box-shadow:0 12px 40px rgba(0,0,0,0.2)}
+  .modal.wide{max-width:820px}
+  .modal .m-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .modal .m-head h2{margin:0;font-size:16px}
+  .modal .m-close{cursor:pointer;color:var(--ink-50);font-size:20px;line-height:1;padding:2px 6px}
+  .modal .m-close:hover{color:var(--ink-90)}
+  .modal .m-body{padding:20px;max-height:65vh;overflow-y:auto}
+  .modal .m-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+
+  /* ---------- Toast ---------- */
+  #toast-wrap{position:fixed;bottom:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+  .toast{
+    background:#1a2733;color:#fff;padding:11px 16px;border-radius:var(--radius);font-size:13px;
+    min-width:260px;max-width:380px;box-shadow:0 6px 20px rgba(0,0,0,0.25);
+    display:flex;align-items:flex-start;gap:9px;
+  }
+  .toast.success{background:#14532d}
+  .toast.error{background:#6e1a15}
+  .toast .ic{font-size:15px;margin-top:1px}
+
+  /* ---------- Doc detail ---------- */
+  .kv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:6px}
+  .kv .l{font-size:11px;color:var(--ink-50);text-transform:uppercase;letter-spacing:.02em}
+  .kv .v{font-size:13.5px;color:var(--ink-90);font-weight:600;margin-top:2px}
+  .kv .v.mono{font-family:var(--mono)}
+
+  .flow-chain{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:8px 0 4px}
+  .flow-node{
+    border:1px solid var(--line);background:#fff;border-radius:var(--radius);padding:10px 14px;min-width:150px;
+    cursor:pointer;
+  }
+  .flow-node:hover{border-color:var(--blue-50)}
+  .flow-node .fn-t{font-size:10.5px;text-transform:uppercase;color:var(--ink-50);letter-spacing:.03em}
+  .flow-node .fn-id{font-weight:700;font-family:var(--mono);font-size:13px;margin-top:2px;color:var(--blue-70)}
+  .flow-node .fn-s{margin-top:6px}
+  .flow-node.empty{opacity:.45;cursor:default}
+  .flow-node.empty:hover{border-color:var(--line)}
+  .flow-arrow-v{display:flex;align-items:center;justify-content:center;color:var(--ink-30);width:26px;font-size:15px}
+
+  .section-title{font-size:13px;font-weight:700;color:var(--ink-90);margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .section-title:first-child{margin-top:0}
+  .muted{color:var(--ink-50)}
+  .right{text-align:right}
+  .mono{font-family:var(--mono)}
+  .stat-line{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--line)}
+  .stat-line:last-child{border-bottom:none}
+  .stat-line .l{color:var(--ink-50)}
+  .stat-line .v{font-weight:700}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .bar-row .name{width:130px;font-size:12.5px;color:var(--ink-70);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-track{flex:1;background:var(--grey-bg);border-radius:4px;height:14px;overflow:hidden}
+  .bar-fill{background:var(--blue-50);height:100%;border-radius:4px}
+  .bar-val{width:90px;text-align:right;font-size:12px;color:var(--ink-70);flex-shrink:0}
+
+  .banner{padding:11px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+  .banner.info{background:var(--blue-10);color:var(--blue-70)}
+  .banner.warn{background:var(--amber-bg);color:var(--amber)}
+  .banner.error{background:var(--red-bg);color:var(--red)}
+
+  @media print{
+    #sidebar,#topbar,.no-print{display:none!important}
+    #content{overflow:visible;padding:0}
+    body{background:#fff}
+  }
+  @media (max-width:900px){
+    .form-grid{grid-template-columns:1fr}
+    #sidebar{width:60px}
+    #sidebar .brand .t2, #sidebar .nav-item span.label, .nav-sec{display:none}
+    #sidebar .nav-item{justify-content:center}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div class="brand">
+      <div class="t1">SAP S/4HANA · SD</div>
+      <div class="t2">O2C Simulator</div>
+    </div>
+    <nav id="nav"></nav>
+  </div>
+  <div id="main">
+    <div id="topbar">
+      <div class="app-title">Order-to-Cash</div>
+      <div class="search-wrap">
+        <input class="gsearch" id="gsearch" type="text" placeholder="Search customer, material, order, invoice...">
+      </div>
+      <div class="spacer"></div>
+      <div class="user-chip"><div class="avatar">SD</div><span style="font-size:13px;color:var(--ink-70)">Sales User</span></div>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+<div id="modal-backdrop"><div class="modal" id="modal"></div></div>
+<div id="toast-wrap"></div>
+
+<script>
+/* =========================================================================
+   SAP SD ORDER-TO-CASH SIMULATOR
+   Single-file app: state, persistence, rendering, business logic
+   ========================================================================= */
+
+const STORAGE_KEY = 'sd_o2c_db_v1';
+
+let DB = null; // loaded async at boot
+let VIEW = { name: 'dashboard', params: {} };
+let NAV_STACK = [];
+let SEARCH_INDEX = [];
+
+/* ---------------- Persistence ---------------- */
+async function loadDB(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, false);
+    if(res && res.value){
+      return JSON.parse(res.value);
+    }
+  }catch(e){ /* not found or storage unavailable */ }
+  return null;
+}
+let saveTimer = null;
+function saveDB(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{ await window.storage.set(STORAGE_KEY, JSON.stringify(DB), false); }
+    catch(e){ console.error('save failed', e); }
+  }, 150);
+}
+
+function emptyDB(){
+  return {
+    counters:{ cust:100000, mat:100000, inq:100000, qt:100000, so:100000, del:100000, matdoc:100000, inv:100000, pay:100000 },
+    customers:[], materials:[], inquiries:[], quotations:[], salesOrders:[], deliveries:[], materialDocs:[], invoices:[], payments:[],
+    demoLoaded:false
+  };
+}
+function nextId(prefix, key){ DB.counters[key]++; return prefix+'-'+DB.counters[key]; }
+
+/* ---------------- Utilities ---------------- */
+function fmtMoney(n, cur){
+  cur = cur || 'INR';
+  const symbol = cur==='INR' ? '₹' : (cur==='USD'?'$':(cur==='EUR'?'€':cur+' '));
+  const v = Number(n||0);
+  return symbol + v.toLocaleString('en-IN', {maximumFractionDigits:2, minimumFractionDigits:2});
+}
+function fmtDate(d){
+  if(!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+}
+function fmtDateTime(d){
+  if(!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+function todayISO(){ return new Date().toISOString(); }
+function addDays(dateStr, days){
+  const d = new Date(dateStr); d.setDate(d.getDate()+days); return d.toISOString();
+}
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; }
+
+function toast(msg, type){
+  type = type || 'info';
+  const icon = type==='success' ? '✓' : (type==='error' ? '✕' : 'ℹ');
+  const t = el(`<div class="toast ${type}"><span class="ic">${icon}</span><span>${escapeHtml(msg)}</span></div>`);
+  document.getElementById('toast-wrap').appendChild(t);
+  setTimeout(()=>{ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(()=>t.remove(),300); }, 3200);
+}
+
+function openModal(title, bodyHtml, footButtons, wide){
+  const backdrop = document.getElementById('modal-backdrop');
+  const modal = document.getElementById('modal');
+  modal.className = 'modal' + (wide?' wide':'');
+  modal.innerHTML = `
+    <div class="m-head"><h2>${title}</h2><div class="m-close" id="m-close-btn">×</div></div>
+    <div class="m-body" id="m-body">${bodyHtml}</div>
+    <div class="m-foot" id="m-foot"></div>`;
+  const foot = modal.querySelector('#m-foot');
+  (footButtons||[]).forEach(b=>{
+    const btn = el(`<button class="btn ${b.cls||''}">${b.label}</button>`);
+    btn.addEventListener('click', b.onClick);
+    foot.appendChild(btn);
+  });
+  backdrop.classList.add('show');
+  modal.querySelector('#m-close-btn').addEventListener('click', closeModal);
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) closeModal(); };
+}
+function closeModal(){ document.getElementById('modal-backdrop').classList.remove('show'); }
+
+function confirmDialog(message, onConfirm, opts){
+  opts = opts || {};
+  openModal(opts.title || 'Please confirm', `<p style="margin:0;font-size:13.5px;color:var(--ink-90)">${escapeHtml(message)}</p>`, [
+    {label:'Cancel', cls:'', onClick: closeModal},
+    {label: opts.confirmLabel || 'Confirm', cls:'primary', onClick: ()=>{ closeModal(); onConfirm(); }}
+  ]);
+}
+
+function badge(text, color){ return `<span class="badge ${color}">${escapeHtml(text)}</span>`; }
+
+const STATUS_COLORS = {
+  // generic
+  'Open':'blue','Draft':'grey','Active':'blue','Processed':'blue','Rejected':'red','Expired':'grey',
+  'Accepted':'green','Converted to Quotation':'green','Converted to Sales Order':'green',
+  'Created':'blue','Confirmed':'blue','Partially Delivered':'amber','Fully Delivered':'green',
+  'Billing Created':'blue','Paid':'green','Completed':'green','Cancelled':'red',
+  'Not Created':'grey','Picking':'amber','Picked':'amber','PGI Completed':'green',
+  'Partially Paid':'amber','Overdue':'red'
+};
+function statusBadge(s){ return badge(s, STATUS_COLORS[s] || 'grey'); }
+
+/* ---------------- Reference data ---------------- */
+const SALES_ORGS = ['1000 - Sales Org India','2000 - Sales Org Export'];
+const DIST_CHANNELS = ['10 - Direct Sales','20 - Retail','30 - Online'];
+const DIVISIONS = ['00 - Cross Division','01 - Electronics','02 - Furniture'];
+const SALES_OFFICES = ['HYD1 - Hyderabad Office','MUM1 - Mumbai Office','BLR1 - Bengaluru Office'];
+const SALES_GROUPS = ['G1 - Corporate Sales','G2 - Channel Sales'];
+const PAYMENT_TERMS = [
+  {code:'Z000', label:'Immediate Payment', days:0},
+  {code:'Z007', label:'Net 7', days:7},
+  {code:'Z015', label:'Net 15', days:15},
+  {code:'Z030', label:'Net 30', days:30},
+  {code:'Z045', label:'Net 45', days:45},
+  {code:'Z060', label:'Net 60', days:60},
+];
+const INCOTERMS = ['EXW - Ex Works','FOB - Free on Board','CIF - Cost Insurance Freight','DAP - Delivered at Place'];
+const PLANTS = ['1000 - Hyderabad Plant','2000 - Chennai Plant'];
+const STORAGE_LOCS = ['0001 - Finished Goods Store','0002 - Raw Material Store'];
+const SHIPPING_COND = ['01 - Standard','02 - Express','03 - Freight'];
+const CUSTOMER_PRICING_GROUPS = ['01 - Standard','02 - Wholesale','03 - Preferred'];
+const RISK_CATEGORIES = ['Low','Medium','High'];
+const MATERIAL_TYPES = ['FERT - Finished Product','HAWA - Trading Good'];
+const TAX_CATEGORIES = ['GST 18%','GST 12%','GST 5%'];
+const PAYMENT_METHODS = ['Bank Transfer','Credit Card','Debit Card','UPI','Cash','Cheque'];
+
+function termDays(code){ const t=PAYMENT_TERMS.find(t=>t.code===code); return t?t.days:30; }
+function termLabel(code){ const t=PAYMENT_TERMS.find(t=>t.code===code); return t?`${t.code} - ${t.label}`:code; }
+
+/* =========================================================================
+   BUSINESS LOGIC
+   ========================================================================= */
+
+function addAudit(doc, action){
+  doc.audit = doc.audit || [];
+  doc.audit.push({action, at: todayISO(), by:'Sales User'});
+}
+
+function findCustomer(id){ return DB.customers.find(c=>c.id===id); }
+function findMaterial(id){ return DB.materials.find(m=>m.id===id); }
+
+function createCustomer(data){
+  const id = nextId('CUST','cust');
+  const c = Object.assign({id, active:true, createdAt: todayISO(), createdBy:'Sales User'}, data);
+  DB.customers.push(c); saveDB(); return c;
+}
+function updateCustomer(id, data){
+  const c = findCustomer(id); if(!c) return null;
+  Object.assign(c, data); c.modifiedAt = todayISO(); saveDB(); return c;
+}
+function toggleCustomerActive(id){
+  const c = findCustomer(id); if(!c) return;
+  c.active = !c.active; c.modifiedAt = todayISO(); saveDB();
+}
+
+function createMaterial(data){
+  const id = nextId('MAT','mat');
+  const m = Object.assign({id, createdAt: todayISO()}, data);
+  DB.materials.push(m); saveDB(); return m;
+}
+function updateMaterial(id, data){
+  const m = findMaterial(id); if(!m) return null;
+  Object.assign(m, data); m.modifiedAt = todayISO(); saveDB(); return m;
+}
+
+function createInquiry(data){
+  const id = nextId('INQ','inq');
+  const inq = Object.assign({id, status:'Open', createdAt: todayISO()}, data);
+  addAudit(inq, 'Created');
+  DB.inquiries.push(inq); saveDB(); return inq;
+}
+function convertInquiryToQuotation(inqId, extra){
+  const inq = DB.inquiries.find(i=>i.id===inqId); if(!inq) return null;
+  const mat = findMaterial(inq.materialId);
+  const price = extra.unitPrice != null ? extra.unitPrice : (mat ? mat.standardPrice : 0);
+  const qt = createQuotation(Object.assign({
+    customerId: inq.customerId, inquiryId: inq.id, materialId: inq.materialId,
+    quantity: inq.quantity, unitPrice: price, discountPct: 0, taxPct: 18,
+    currency:'INR', paymentTerms:'Z030', incoterms: INCOTERMS[0]
+  }, extra));
+  inq.status = 'Converted to Quotation';
+  addAudit(inq, 'Converted to Quotation ' + qt.id);
+  saveDB();
+  return qt;
+}
+
+function calcLine(qty, unitPrice, discountPct, taxPct){
+  const gross = qty * unitPrice;
+  const discount = gross * (discountPct/100);
+  const afterDiscount = gross - discount;
+  const tax = afterDiscount * (taxPct/100);
+  const net = afterDiscount + tax;
+  return {gross, discount, tax, net};
+}
+
+function createQuotation(data){
+  const id = nextId('QT','qt');
+  const calc = calcLine(data.quantity, data.unitPrice, data.discountPct||0, data.taxPct||0);
+  const qt = Object.assign({
+    id, status:'Draft', createdAt: todayISO(),
+    validFrom: todayISO(), validTo: addDays(todayISO(), 30)
+  }, data, calc);
+  addAudit(qt, 'Created');
+  DB.quotations.push(qt); saveDB(); return qt;
+}
+function setQuotationStatus(id, status){
+  const qt = DB.quotations.find(q=>q.id===id); if(!qt) return;
+  qt.status = status; addAudit(qt, 'Status -> '+status); saveDB();
+}
+
+function convertQuotationToSalesOrder(qtId, extra){
+  const qt = DB.quotations.find(q=>q.id===qtId); if(!qt) return null;
+  const so = createSalesOrder(Object.assign({
+    customerId: qt.customerId, quotationId: qt.id, materialId: qt.materialId,
+    quantity: qt.quantity, unitPrice: qt.unitPrice, discountPct: qt.discountPct, taxPct: qt.taxPct,
+    currency: qt.currency, paymentTerms: qt.paymentTerms, incoterms: qt.incoterms,
+  }, extra));
+  qt.status = 'Converted to Sales Order';
+  addAudit(qt, 'Converted to Sales Order '+so.id);
+  saveDB();
+  return so;
+}
+
+function createSalesOrder(data){
+  const id = nextId('SO','so');
+  const calc = calcLine(data.quantity, data.unitPrice, data.discountPct||0, data.taxPct||0);
+  const mat = findMaterial(data.materialId);
+  const so = Object.assign({
+    id, status:'Created', createdAt: todayISO(),
+    salesOrg: SALES_ORGS[0], distChannel: DIST_CHANNELS[0], division: DIVISIONS[0],
+    salesOffice: SALES_OFFICES[0], salesGroup: SALES_GROUPS[0],
+    plant: mat ? mat.plant : PLANTS[0], storageLoc: mat ? mat.storageLoc : STORAGE_LOCS[0],
+    requestedDeliveryDate: addDays(todayISO(), 5),
+  }, data, calc);
+  addAudit(so, 'Created');
+  DB.salesOrders.push(so); saveDB();
+  performAvailabilityCheck(so.id);
+  return so;
+}
+
+function performAvailabilityCheck(soId){
+  const so = DB.salesOrders.find(s=>s.id===soId); if(!so) return;
+  const mat = findMaterial(so.materialId);
+  const available = mat ? mat.stock : 0;
+  const confirmedQty = Math.min(so.quantity, available);
+  const backorder = so.quantity - confirmedQty;
+  so.availabilityCheck = {
+    requestedQty: so.quantity, availableStock: available,
+    confirmedQty, backorderQty: backorder,
+    confirmedDeliveryDate: backorder>0 ? addDays(todayISO(), 12) : so.requestedDeliveryDate,
+    checkedAt: todayISO()
+  };
+  so.confirmedQty = confirmedQty;
+  so.status = 'Confirmed';
+  addAudit(so, `Availability check: confirmed ${confirmedQty}/${so.quantity}`);
+  saveDB();
+}
+
+function deliveryEligible(so){
+  return ['Confirmed','Partially Delivered'].includes(so.status) && (so.confirmedQty - deliveredQtyForSO(so.id)) > 0;
+}
+function deliveredQtyForSO(soId){
+  return DB.deliveries.filter(d=>d.salesOrderId===soId).reduce((sum,d)=>sum+d.quantity,0);
+}
+
+function createDelivery(soId, qty){
+  const so = DB.salesOrders.find(s=>s.id===soId);
+  if(!so) return {error:'Sales order not found.'};
+  if(!['Confirmed','Partially Delivered'].includes(so.status)) return {error:'Delivery cannot be created because the Sales Order is not confirmed.'};
+  const remaining = so.confirmedQty - deliveredQtyForSO(so.id);
+  if(qty <= 0) return {error:'Delivery quantity must be greater than zero.'};
+  if(qty > remaining) return {error:`Delivery quantity exceeds confirmed remaining quantity (${remaining}).`};
+  const id = nextId('DEL','del');
+  const del = {
+    id, salesOrderId: so.id, customerId: so.customerId, materialId: so.materialId,
+    quantity: qty, deliveryDate: todayISO(), shippingPoint:'SP01 - Hyderabad Shipping Point',
+    plant: so.plant, storageLoc: so.storageLoc,
+    pickedQty: 0, pickingStatus:'Not Started', status:'Created', pgiStatus:'Pending',
+    createdAt: todayISO()
+  };
+  addAudit(del, 'Created');
+  DB.deliveries.push(del);
+  const totalDelivered = deliveredQtyForSO(so.id) + qty;
+  so.status = totalDelivered >= so.confirmedQty ? 'Fully Delivered' : 'Partially Delivered';
+  addAudit(so, 'Delivery '+id+' created for qty '+qty);
+  saveDB();
+  return {delivery: del};
+}
+
+function confirmPicking(delId, pickedQty){
+  const del = DB.deliveries.find(d=>d.id===delId);
+  if(!del) return {error:'Delivery not found.'};
+  if(pickedQty < 0) return {error:'Picked quantity cannot be negative.'};
+  if(pickedQty > del.quantity) return {error:'Picked quantity cannot exceed delivery quantity.'};
+  del.pickedQty = pickedQty;
+  del.pickingStatus = pickedQty >= del.quantity ? 'Completed' : (pickedQty>0 ? 'In Progress' : 'Not Started');
+  if(del.pickingStatus==='Completed') del.status = 'Picked';
+  addAudit(del, `Picking updated: ${pickedQty}/${del.quantity}`);
+  saveDB();
+  return {delivery: del};
+}
+function resetPicking(delId){
+  const del = DB.deliveries.find(d=>d.id===delId); if(!del) return;
+  del.pickedQty = 0; del.pickingStatus='Not Started'; if(del.status==='Picked') del.status='Created';
+  addAudit(del, 'Picking reset'); saveDB();
+}
+
+function postGoodsIssue(delId){
+  const del = DB.deliveries.find(d=>d.id===delId);
+  if(!del) return {error:'Delivery not found.'};
+  if(del.pickingStatus !== 'Completed') return {error:'Picking must be completed before PGI.'};
+  if(del.pgiStatus === 'Completed') return {error:'PGI has already been posted for this delivery.'};
+  const mat = findMaterial(del.materialId);
+  if(!mat) return {error:'Material not found.'};
+  if(mat.stock < del.quantity) return {error:'Insufficient stock to post goods issue.'};
+  mat.stock -= del.quantity;
+  const matDocId = nextId('MATDOC','matdoc');
+  const matDoc = {
+    id: matDocId, deliveryId: del.id, materialId: mat.id, quantity: del.quantity,
+    movementType:'601 - Goods Issue for Delivery', postedAt: todayISO(), postedBy:'Sales User'
+  };
+  DB.materialDocs.push(matDoc);
+  del.pgiStatus = 'Completed';
+  del.status = 'PGI Completed';
+  del.materialDocId = matDocId;
+  addAudit(del, 'PGI posted, Material Doc '+matDocId);
+  const so = DB.salesOrders.find(s=>s.id===del.salesOrderId);
+  if(so){ addAudit(so, 'PGI posted for delivery '+del.id); }
+  saveDB();
+  return {delivery: del, materialDoc: matDoc};
+}
+
+function createInvoice(delId){
+  const del = DB.deliveries.find(d=>d.id===delId);
+  if(!del) return {error:'Delivery not found.'};
+  if(del.pgiStatus !== 'Completed') return {error:'Billing cannot be created because Post Goods Issue is not completed.'};
+  if(del.invoiceId) return {error:'An invoice already exists for this delivery.'};
+  const so = DB.salesOrders.find(s=>s.id===del.salesOrderId);
+  const calc = calcLine(del.quantity, so.unitPrice, so.discountPct||0, so.taxPct||0);
+  const id = nextId('INV','inv');
+  const days = termDays(so.paymentTerms);
+  const inv = Object.assign({
+    id, salesOrderId: so.id, deliveryId: del.id, customerId: so.customerId, materialId: so.materialId,
+    quantity: del.quantity, billingDate: todayISO(), dueDate: addDays(todayISO(), days),
+    currency: so.currency, paymentTerms: so.paymentTerms,
+    paidAmount: 0, status: 'Open', createdAt: todayISO()
+  }, calc);
+  addAudit(inv, 'Created');
+  DB.invoices.push(inv);
+  del.invoiceId = id;
+  so.status = 'Billing Created';
+  addAudit(so, 'Invoice '+id+' created');
+  saveDB();
+  return {invoice: inv};
+}
+
+function recordPayment(invId, amount, method, refNo, notes){
+  const inv = DB.invoices.find(i=>i.id===invId);
+  if(!inv) return {error:'Payment cannot be recorded because no invoice exists.'};
+  const remaining = inv.net - inv.paidAmount;
+  if(amount <= 0) return {error:'Payment amount must be greater than zero.'};
+  if(amount > remaining + 0.01) return {error:'Payment amount exceeds outstanding amount.'};
+  const id = nextId('PAY','pay');
+  const pay = {
+    id, invoiceId: inv.id, paymentDate: todayISO(), amount, method, refNo: refNo||'', notes: notes||'',
+    createdAt: todayISO()
+  };
+  DB.payments.push(pay);
+  inv.paidAmount += amount;
+  inv.status = inv.paidAmount >= inv.net - 0.01 ? 'Paid' : 'Partially Paid';
+  addAudit(inv, `Payment ${id} recorded: ${fmtMoney(amount, inv.currency)}`);
+  if(inv.status === 'Paid'){
+    const so = DB.salesOrders.find(s=>s.id===inv.salesOrderId);
+    if(so){ so.status = 'Completed'; addAudit(so, 'Order completed - invoice paid in full'); }
+  }
+  saveDB();
+  return {payment: pay};
+}
+
+function isOverdue(inv){
+  return inv.status !== 'Paid' && new Date(inv.dueDate) < new Date();
+}
+
+/* =========================================================================
+   DEMO DATA
+   ========================================================================= */
+function loadDemoData(){
+  DB = emptyDB();
+  const c1 = createCustomer({name:'Bharat Electronics Retail', type:'Organization', industry:'Electronics Retail', phone:'+91 98765 43210', email:'procurement@bharatelectronics.in', address:'Plot 12, Industrial Area', city:'Hyderabad', state:'Telangana', country:'India', postalCode:'500032', salesOrg:SALES_ORGS[0], distChannel:DIST_CHANNELS[0], division:DIVISIONS[1], salesOffice:SALES_OFFICES[0], salesGroup:SALES_GROUPS[0], shippingCondition:SHIPPING_COND[0], deliveryPriority:'Normal', transportZone:'Zone South', paymentTerms:'Z030', incoterms:INCOTERMS[0], currency:'INR', pricingGroup:CUSTOMER_PRICING_GROUPS[0], reconAccount:'140000 - Trade Receivables', creditLimit:2000000, riskCategory:'Low'});
+  const c2 = createCustomer({name:'Deccan Furniture Mart', type:'Organization', industry:'Furniture Retail', phone:'+91 90000 11223', email:'accounts@deccanfurniture.in', address:'MG Road', city:'Bengaluru', state:'Karnataka', country:'India', postalCode:'560001', salesOrg:SALES_ORGS[0], distChannel:DIST_CHANNELS[1], division:DIVISIONS[2], salesOffice:SALES_OFFICES[2], salesGroup:SALES_GROUPS[1], shippingCondition:SHIPPING_COND[0], deliveryPriority:'Normal', transportZone:'Zone South', paymentTerms:'Z045', incoterms:INCOTERMS[1], currency:'INR', pricingGroup:CUSTOMER_PRICING_GROUPS[1], reconAccount:'140000 - Trade Receivables', creditLimit:1200000, riskCategory:'Medium'});
+  const c3 = createCustomer({name:'Mumbai IT Solutions Pvt Ltd', type:'Organization', industry:'IT Services', phone:'+91 98220 55667', email:'purchase@mumbaiits.com', address:'Andheri East', city:'Mumbai', state:'Maharashtra', country:'India', postalCode:'400069', salesOrg:SALES_ORGS[0], distChannel:DIST_CHANNELS[0], division:DIVISIONS[1], salesOffice:SALES_OFFICES[1], salesGroup:SALES_GROUPS[0], shippingCondition:SHIPPING_COND[1], deliveryPriority:'High', transportZone:'Zone West', paymentTerms:'Z015', incoterms:INCOTERMS[0], currency:'INR', pricingGroup:CUSTOMER_PRICING_GROUPS[2], reconAccount:'140000 - Trade Receivables', creditLimit:3000000, riskCategory:'Low'});
+  const c4 = createCustomer({name:'Chennai Office Supplies Co', type:'Organization', industry:'Office Supplies', phone:'+91 93456 78901', email:'orders@chennaisupplies.in', address:'Anna Salai', city:'Chennai', state:'Tamil Nadu', country:'India', postalCode:'600002', salesOrg:SALES_ORGS[0], distChannel:DIST_CHANNELS[1], division:DIVISIONS[2], salesOffice:SALES_OFFICES[1], salesGroup:SALES_GROUPS[1], shippingCondition:SHIPPING_COND[0], deliveryPriority:'Normal', transportZone:'Zone South', paymentTerms:'Z030', incoterms:INCOTERMS[2], currency:'INR', pricingGroup:CUSTOMER_PRICING_GROUPS[0], reconAccount:'140000 - Trade Receivables', creditLimit:800000, riskCategory:'Medium'});
+  const c5 = createCustomer({name:'Global Exports Trading LLC', type:'Organization', industry:'Import/Export', phone:'+1 415 555 0134', email:'buyer@globalexports.com', address:'420 Market Street', city:'San Francisco', state:'CA', country:'USA', postalCode:'94105', salesOrg:SALES_ORGS[1], distChannel:DIST_CHANNELS[2], division:DIVISIONS[1], salesOffice:SALES_OFFICES[0], salesGroup:SALES_GROUPS[0], shippingCondition:SHIPPING_COND[2], deliveryPriority:'Normal', transportZone:'Zone Export', paymentTerms:'Z060', incoterms:INCOTERMS[3], currency:'USD', pricingGroup:CUSTOMER_PRICING_GROUPS[2], reconAccount:'140000 - Trade Receivables', creditLimit:5000000, riskCategory:'High'});
+
+  const materialsData = [
+    ['Business Laptop 14"', 'FERT - Finished Product','Electronics','EA', 45000, 60, 20, 'GST 18%', 1.6],
+    ['Smartphone Pro X', 'FERT - Finished Product','Electronics','EA', 32000, 120, 30, 'GST 18%', 0.2],
+    ['Ergonomic Office Chair', 'FERT - Finished Product','Furniture','EA', 8500, 40, 10, 'GST 12%', 12],
+    ['27" LED Monitor', 'FERT - Finished Product','Electronics','EA', 14000, 55, 15, 'GST 18%', 4.2],
+    ['Wireless Keyboard', 'HAWA - Trading Good','Electronics','EA', 1500, 200, 50, 'GST 18%', 0.4],
+    ['Laser Printer', 'FERT - Finished Product','Electronics','EA', 18500, 25, 8, 'GST 18%', 6.8],
+    ['Standing Desk', 'FERT - Finished Product','Furniture','EA', 22000, 18, 5, 'GST 12%', 28],
+    ['Wireless Mouse', 'HAWA - Trading Good','Electronics','EA', 900, 300, 60, 'GST 18%', 0.1],
+    ['4-Drawer Filing Cabinet', 'FERT - Finished Product','Furniture','EA', 9800, 22, 6, 'GST 12%', 22],
+    ['External SSD 1TB', 'HAWA - Trading Good','Electronics','EA', 6500, 90, 20, 'GST 18%', 0.1],
+  ];
+  const mats = materialsData.map(([desc,type,cat,uom,price,stock,reorder,tax,weight])=> createMaterial({
+    description: desc, type, category: cat, baseUOM: uom, salesUnit: uom,
+    plant: PLANTS[0], storageLoc: STORAGE_LOCS[0], stock, reorderLevel: reorder,
+    standardPrice: price, taxCategory: tax, weight
+  }));
+
+  // Inquiries
+  const inq1 = createInquiry({customerId:c1.id, materialId:mats[0].id, quantity:10, inquiryDate:todayISO(), validUntil:addDays(todayISO(),15), requestedDeliveryDate:addDays(todayISO(),10), notes:'Bulk order for new branch opening.'});
+  const inq2 = createInquiry({customerId:c2.id, materialId:mats[2].id, quantity:25, inquiryDate:todayISO(), validUntil:addDays(todayISO(),15), requestedDeliveryDate:addDays(todayISO(),12), notes:'Office refurbishment project.'});
+  const inq3 = createInquiry({customerId:c3.id, materialId:mats[3].id, quantity:15, inquiryDate:todayISO(), validUntil:addDays(todayISO(),15), requestedDeliveryDate:addDays(todayISO(),7), notes:'Upgrading workstation displays.'});
+
+  // Quotation flow - convert inq1 fully, inq2 partly
+  const qt1 = convertInquiryToQuotation(inq1.id, {unitPrice: mats[0].standardPrice, discountPct:5, taxPct:18, paymentTerms:'Z030', incoterms:INCOTERMS[0], currency:'INR'});
+  setQuotationStatus(qt1.id, 'Accepted');
+  const qt2 = convertInquiryToQuotation(inq2.id, {unitPrice: mats[2].standardPrice, discountPct:3, taxPct:12, paymentTerms:'Z045', incoterms:INCOTERMS[1], currency:'INR'});
+  setQuotationStatus(qt2.id, 'Active');
+  const qt3 = createQuotation({customerId:c4.id, materialId:mats[4].id, quantity:50, unitPrice: mats[4].standardPrice, discountPct:0, taxPct:18, currency:'INR', paymentTerms:'Z030', incoterms:INCOTERMS[0]});
+  setQuotationStatus(qt3.id, 'Draft');
+
+  // Sales orders
+  const so1 = convertQuotationToSalesOrder(qt1.id, {customerPO:'PO-BER-2201', requestedDeliveryDate: addDays(todayISO(),8)});
+  const so2 = createSalesOrder({customerId:c3.id, materialId:mats[3].id, quantity:15, unitPrice:mats[3].standardPrice, discountPct:0, taxPct:18, currency:'INR', paymentTerms:'Z015', incoterms:INCOTERMS[0], customerPO:'PO-MIT-0099', requestedDeliveryDate:addDays(todayISO(),6)});
+  const so3 = createSalesOrder({customerId:c2.id, materialId:mats[2].id, quantity:25, unitPrice:mats[2].standardPrice, discountPct:3, taxPct:12, currency:'INR', paymentTerms:'Z045', incoterms:INCOTERMS[1], customerPO:'PO-DFM-1187', requestedDeliveryDate:addDays(todayISO(),12)});
+
+  // Deliveries + downstream for so1 (fully completed) and so2 (delivered + billed, partial payment)
+  const d1 = createDelivery(so1.id, so1.confirmedQty).delivery;
+  confirmPicking(d1.id, d1.quantity);
+  postGoodsIssue(d1.id);
+  const inv1 = createInvoice(d1.id).invoice;
+  recordPayment(inv1.id, inv1.net, 'Bank Transfer', 'TXN-88213', 'Full settlement');
+
+  const d2 = createDelivery(so2.id, so2.confirmedQty).delivery;
+  confirmPicking(d2.id, d2.quantity);
+  postGoodsIssue(d2.id);
+  const inv2 = createInvoice(d2.id).invoice;
+  recordPayment(inv2.id, Math.round(inv2.net*0.4), 'UPI', 'UPI-55210', 'Advance payment');
+
+  // so3 left at Confirmed stage (no delivery yet) to demonstrate in-progress flow
+  DB.demoLoaded = true;
+  saveDB();
+}
+
+function clearDemoData(){
+  DB = emptyDB();
+  saveDB();
+}
+
+/* =========================================================================
+   NAVIGATION / RENDERING
+   ========================================================================= */
+const NAV_ITEMS = [
+  {sec:'Overview'},
+  {id:'dashboard', label:'Dashboard', ic:'▤'},
+  {sec:'Master Data'},
+  {id:'customers', label:'Customer Master', ic:'☺'},
+  {id:'materials', label:'Material Master', ic:'▣'},
+  {sec:'Pre-Sales & Sales'},
+  {id:'inquiries', label:'Sales Inquiry', ic:'?'},
+  {id:'quotations', label:'Quotation', ic:'≈'},
+  {id:'salesorders', label:'Sales Orders', ic:'▦'},
+  {sec:'Logistics'},
+  {id:'deliveries', label:'Delivery', ic:'▶'},
+  {id:'picking', label:'Picking', ic:'▧'},
+  {id:'pgi', label:'Post Goods Issue', ic:'▥'},
+  {sec:'Billing'},
+  {id:'billing', label:'Billing', ic:'▤'},
+  {id:'payments', label:'Payments', ic:'$'},
+  {sec:'Analysis'},
+  {id:'docflow', label:'Document Flow', ic:'⇶'},
+  {id:'orderhistory', label:'Order History', ic:'⌛'},
+  {id:'reports', label:'Reports', ic:'▲'},
+  {sec:'System'},
+  {id:'settings', label:'Settings', ic:'⚙'},
+];
+
+function renderNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  NAV_ITEMS.forEach(item=>{
+    if(item.sec){ nav.appendChild(el(`<div class="nav-sec">${item.sec}</div>`)); return; }
+    const div = el(`<div class="nav-item" data-view="${item.id}"><span class="ic">${item.ic}</span><span class="label">${item.label}</span></div>`);
+    if(VIEW.name === item.id) div.classList.add('active');
+    div.addEventListener('click', ()=> navigate(item.id));
+    nav.appendChild(div);
+  });
+}
+
+function navigate(name, params, opts){
+  opts = opts || {};
+  const next = {name, params: params||{}};
+  const isSame = VIEW.name===next.name && JSON.stringify(VIEW.params)===JSON.stringify(next.params);
+  if(!opts.replace && !opts.isBack && !isSame){
+    NAV_STACK.push(VIEW);
+  }
+  VIEW = next;
+  if(!opts.isBack && !isSame){
+    try{ history.pushState(next, ''); }catch(e){}
+  }
+  renderNav();
+  renderView();
+  document.getElementById('content').scrollTop = 0;
+}
+
+window.addEventListener('popstate', (e)=>{
+  const state = e.state || {name:'dashboard', params:{}};
+  if(NAV_STACK.length) NAV_STACK.pop();
+  VIEW = state;
+  renderNav();
+  renderView();
+});
+
+function goBack(){
+  if(NAV_STACK.length > 0){
+    const prev = NAV_STACK.pop();
+    navigate(prev.name, prev.params, {isBack:true});
+  } else {
+    navigate('dashboard', {}, {isBack:true});
+  }
+}
+
+function crumbs(parts){
+  return `<div class="crumbs">${parts.map((p,i)=> i===parts.length-1 ? `<span class="cur">${escapeHtml(p)}</span>` : `${escapeHtml(p)} / `).join('')}</div>`;
+}
+
+function renderView(){
+  const c = document.getElementById('content');
+  const renderers = {
+    dashboard: renderDashboard, customers: renderCustomers, materials: renderMaterials,
+    inquiries: renderInquiries, quotations: renderQuotations, salesorders: renderSalesOrders,
+    deliveries: renderDeliveries, picking: renderPicking, pgi: renderPGI,
+    billing: renderBilling, payments: renderPayments, docflow: renderDocFlow,
+    orderhistory: renderOrderHistory, reports: renderReports, settings: renderSettings,
+    customerDetail: renderCustomerDetail, materialDetail: renderMaterialDetail, salesOrderDetail: renderSalesOrderDetail,
+    quotationDetail: renderQuotationDetail, inquiryDetail: renderInquiryDetail,
+    deliveryDetail: renderDeliveryDetail, invoiceDetail: renderInvoiceDetail,
+  };
+  const fn = renderers[VIEW.name] || renderDashboard;
+  c.innerHTML = fn(VIEW.params||{});
+  bindViewEvents();
+}
+
+/* ---------------- Dashboard ---------------- */
+function renderDashboard(){
+  const totalCustomers = DB.customers.length;
+  const openQuotations = DB.quotations.filter(q=>['Draft','Active'].includes(q.status)).length;
+  const openSO = DB.salesOrders.filter(s=>!['Completed','Cancelled'].includes(s.status)).length;
+  const pendingDeliveries = DB.deliveries.filter(d=>d.pgiStatus!=='Completed').length;
+  const pgiCompleted = DB.deliveries.filter(d=>d.pgiStatus==='Completed').length;
+  const openInvoices = DB.invoices.filter(i=>i.status!=='Paid').length;
+  const paymentsReceived = DB.payments.reduce((s,p)=>s+p.amount,0);
+  const totalSalesValue = DB.salesOrders.reduce((s,o)=>s+o.net,0);
+
+  const kpis = [
+    ['dashboard-c-customers', totalCustomers, 'Total Customers', 'customers'],
+    ['dashboard-c-inq', openQuotations, 'Open Quotations', 'quotations'],
+    ['dashboard-c-so', openSO, 'Open Sales Orders', 'salesorders'],
+    ['dashboard-c-del', pendingDeliveries, 'Pending Deliveries', 'deliveries'],
+    ['dashboard-c-pgi', pgiCompleted, 'Goods Issues Completed', 'pgi'],
+    ['dashboard-c-inv', openInvoices, 'Open Invoices', 'billing'],
+    ['dashboard-c-pay', fmtMoney(paymentsReceived), 'Payments Received', 'payments'],
+    ['dashboard-c-tot', fmtMoney(totalSalesValue), 'Total Sales Value', 'salesorders'],
+  ];
+
+  return `
+    <h1 class="page-title">Order-to-Cash Dashboard</h1>
+    <p class="page-sub">Real-time overview of the sales order lifecycle across SD, MM and FI.</p>
+    <div class="kpi-grid">
+      ${kpis.map(([id,v,l,dest])=>`<div class="kpi" data-nav="${dest}"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}
+    </div>
+    <div class="card">
+      <h3>Order-to-Cash Process Pipeline</h3>
+      <div class="pipeline">
+        ${['Customer|customers','Inquiry|inquiries','Quotation|quotations','Sales Order|salesorders','Delivery|deliveries','Picking|picking','PGI|pgi','Billing|billing','Payment|payments','Completed|orderhistory']
+          .map((s,i,arr)=>{ const [label,dest]=s.split('|'); return `<span class="pipe-stage" data-nav="${dest}">${label}</span>${i<arr.length-1?'<span class="pipe-arrow">→</span>':''}`; }).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <h3>Recent Sales Orders</h3>
+      ${renderMiniOrderTable(DB.salesOrders.slice(-5).reverse())}
+    </div>
+  `;
+}
+function renderMiniOrderTable(orders){
+  if(orders.length===0) return emptyState('No sales orders yet.', 'Create your first sales order from a quotation or directly.');
+  return `<div class="table-wrap"><table class="grid"><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Net Value</th><th>Status</th></tr></thead><tbody>
+    ${orders.map(o=>`<tr><td><span class="cell-link" data-nav="salesOrderDetail" data-id="${o.id}">${o.id}</span></td><td>${escapeHtml(custName(o.customerId))}</td><td>${fmtDate(o.createdAt)}</td><td>${fmtMoney(o.net,o.currency)}</td><td>${statusBadge(o.status)}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function custName(id){ const c = findCustomer(id); return c ? c.name+' ('+c.id+')' : id; }
+function matName(id){ const m = findMaterial(id); return m ? m.description+' ('+m.id+')' : id; }
+function emptyState(msg, sub, actionHtml){
+  return `<div class="empty-state"><div class="ic">▢</div><div class="msg"><strong>${escapeHtml(msg)}</strong><br><span class="muted">${escapeHtml(sub||'')}</span></div>${actionHtml||''}</div>`;
+}
+
+/* ---------------- Customers ---------------- */
+function renderCustomers(){
+  const list = DB.customers;
+  return `
+    <div class="page-head">
+      <div><h1 class="page-title">Customer Master</h1><p class="page-sub">Manage customer master records (general, sales area, shipping, billing, accounting data).</p></div>
+      <button class="btn primary" id="btn-new-customer">+ Create Customer</button>
+    </div>
+    <div class="table-toolbar customer-search-toolbar">
+      <div class="customer-search-box">
+        <span class="customer-search-icon">⌕</span>
+        <input type="text" id="cust-search" placeholder="Search customer by name or ID..." autocomplete="off">
+        <button type="button" class="customer-clear-btn" id="cust-clear" title="Clear search" aria-label="Clear customer search">×</button>
+      </div>
+      <select id="cust-filter" class="customer-filter" aria-label="Customer status filter">
+        <option value="all">All customers</option>
+        <option value="active">Active only</option>
+        <option value="inactive">Inactive only</option>
+      </select>
+    </div>
+    <div class="table-wrap"><table class="grid" id="cust-table"><thead><tr>
+      <th data-k="id">Customer ID</th><th data-k="name">Name</th><th data-k="city">City</th><th data-k="country">Country</th><th data-k="salesOrg">Sales Org</th><th data-k="creditLimit">Credit Limit</th><th>Status</th><th></th>
+    </tr></thead><tbody>${custRows(list)}</tbody></table></div>
+  `;
+}
+function custRows(list){
+  if(list.length===0) return `<tr><td colspan="8">${emptyState('No customers found.','Create a customer to get started.')}</td></tr>`;
+  return list.map(c=>`<tr>
+    <td><span class="cell-link" data-nav="customerDetail" data-id="${c.id}">${c.id}</span></td>
+    <td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.city||'')}</td><td>${escapeHtml(c.country||'')}</td>
+    <td>${escapeHtml(c.salesOrg||'')}</td><td>${fmtMoney(c.creditLimit, c.currency)}</td>
+    <td>${c.active ? badge('Active','green') : badge('Inactive','grey')}</td>
+    <td><button class="btn small" data-action="edit-customer" data-id="${c.id}">Edit</button></td>
+  </tr>`).join('');
+}
+
+function customerFormHtml(existing){
+  const c = existing || {};
+  return `<form id="customer-form" class="form-grid one">
+    <fieldset class="fgroup"><legend>General Data</legend>
+      <div class="form-grid">
+        <div class="field"><label>Customer Name <span class="req">*</span></label><input required name="name" value="${escapeHtml(c.name||'')}"></div>
+        <div class="field"><label>Customer Type</label><select name="type"><option ${c.type==='Organization'?'selected':''}>Organization</option><option ${c.type==='Person' || c.type==='Individual'?'selected':''}>Person</option><option ${c.type==='Group'?'selected':''}>Group</option></select></div>
+        <div class="field"><label>Industry</label><input name="industry" value="${escapeHtml(c.industry||'')}"></div>
+        <div class="field"><label>Phone</label><input name="phone" value="${escapeHtml(c.phone||'')}"></div>
+        <div class="field"><label>Email</label><input type="email" name="email" value="${escapeHtml(c.email||'')}"></div>
+        <div class="field"><label>Address</label><input name="address" value="${escapeHtml(c.address||'')}"></div>
+        <div class="field"><label>City</label><input name="city" value="${escapeHtml(c.city||'')}"></div>
+        <div class="field"><label>State</label><input name="state" value="${escapeHtml(c.state||'')}"></div>
+        <div class="field"><label>Country</label><input name="country" value="${escapeHtml(c.country||'India')}"></div>
+        <div class="field"><label>Postal Code</label><input name="postalCode" value="${escapeHtml(c.postalCode||'')}"></div>
+      </div>
+    </fieldset>
+    <fieldset class="fgroup"><legend>Sales Area Data</legend>
+      <div class="form-grid">
+        <div class="field"><label>Sales Organization</label><select name="salesOrg">${opts(SALES_ORGS,c.salesOrg)}</select></div>
+        <div class="field"><label>Distribution Channel</label><select name="distChannel">${opts(DIST_CHANNELS,c.distChannel)}</select></div>
+        <div class="field"><label>Division</label><select name="division">${opts(DIVISIONS,c.division)}</select></div>
+        <div class="field"><label>Sales Office</label><select name="salesOffice">${opts(SALES_OFFICES,c.salesOffice)}</select></div>
+        <div class="field"><label>Sales Group</label><select name="salesGroup">${opts(SALES_GROUPS,c.salesGroup)}</select></div>
+      </div>
+    </fieldset>
+    <fieldset class="fgroup"><legend>Shipping Data</legend>
+      <div class="form-grid">
+        <div class="field"><label>Shipping Condition</label><select name="shippingCondition">${opts(SHIPPING_COND,c.shippingCondition)}</select></div>
+        <div class="field"><label>Delivery Priority</label><select name="deliveryPriority"><option ${c.deliveryPriority==='Normal'?'selected':''}>Normal</option><option ${c.deliveryPriority==='High'?'selected':''}>High</option></select></div>
+        <div class="field"><label>Transportation Zone</label><input name="transportZone" value="${escapeHtml(c.transportZone||'Zone South')}"></div>
+      </div>
+    </fieldset>
+    <fieldset class="fgroup"><legend>Billing Data</legend>
+      <div class="form-grid">
+        <div class="field"><label>Payment Terms</label><select name="paymentTerms">${PAYMENT_TERMS.map(t=>`<option value="${t.code}" ${c.paymentTerms===t.code?'selected':''}>${t.code} - ${t.label}</option>`).join('')}</select></div>
+        <div class="field"><label>Incoterms</label><select name="incoterms">${opts(INCOTERMS,c.incoterms)}</select></div>
+        <div class="field"><label>Currency</label><select name="currency"><option ${c.currency==='INR'?'selected':''}>INR</option><option ${c.currency==='USD'?'selected':''}>USD</option><option ${c.currency==='EUR'?'selected':''}>EUR</option></select></div>
+        <div class="field"><label>Customer Pricing Group</label><select name="pricingGroup">${opts(CUSTOMER_PRICING_GROUPS,c.pricingGroup)}</select></div>
+      </div>
+    </fieldset>
+    <fieldset class="fgroup"><legend>Accounting Data</legend>
+      <div class="form-grid">
+        <div class="field"><label>Reconciliation Account</label><input name="reconAccount" value="${escapeHtml(c.reconAccount||'140000 - Trade Receivables')}"></div>
+        <div class="field"><label>Credit Limit</label><input type="number" name="creditLimit" value="${c.creditLimit||500000}"></div>
+        <div class="field"><label>Risk Category</label><select name="riskCategory">${opts(RISK_CATEGORIES,c.riskCategory)}</select></div>
+      </div>
+    </fieldset>
+  </form>`;
+}
+function opts(arr, sel){ return arr.map(o=>`<option ${o===sel?'selected':''}>${escapeHtml(o)}</option>`).join(''); }
+
+function readForm(formEl){
+  const data = {};
+  new FormData(formEl).forEach((v,k)=> data[k]=v);
+  return data;
+}
+
+function openCustomerForm(existingId){
+  const existing = existingId ? findCustomer(existingId) : null;
+  const returnToSalesOrder = !existingId && document.getElementById('so-form');
+
+  openModal(existing? 'Edit Customer '+existing.id : 'Create Customer', customerFormHtml(existing), [
+    {label:'Cancel', onClick: closeModal},
+    {label: existing?'Save Changes':'Create Customer', cls:'primary', onClick: ()=>{
+      const form = document.getElementById('customer-form');
+      if(!form.reportValidity()) return;
+
+      const data = readForm(form);
+      data.creditLimit = Number(data.creditLimit)||0;
+
+      if(existing){
+        updateCustomer(existing.id, data);
+        toast('Customer '+existing.id+' updated.', 'success');
+        closeModal();
+        navigate('customerDetail', {id: existing.id});
+      }else{
+        const c = createCustomer(data);
+        toast('Customer '+c.id+' created automatically.', 'success');
+
+        closeModal();
+
+        // When Customer Master is opened from Sales Order creation,
+        // return to the Sales Order and select the newly generated Customer ID.
+        if(returnToSalesOrder){
+          const soFormStillOpen = document.getElementById('so-form');
+          if(soFormStillOpen){
+            refreshSalesOrderCustomers(c.id);
+            return;
+          }
+        }
+
+        navigate('customerDetail', {id: c.id});
+      }
+    }}
+  ], true);
+}
+
+function renderCustomerDetail(params){
+  const c = findCustomer(params.id);
+  if(!c) return emptyState('Customer not found.', '');
+  const orders = DB.salesOrders.filter(o=>o.customerId===c.id);
+  const quotes = DB.quotations.filter(q=>q.customerId===c.id);
+  const invoices = DB.invoices.filter(i=>i.customerId===c.id);
+  return `
+    ${crumbs(['Customer Master', c.id])}
+    <div class="page-head">
+      <div><h1 class="page-title">${escapeHtml(c.name)}</h1><p class="page-sub">${c.id} · ${escapeHtml(c.city||'')}, ${escapeHtml(c.country||'')}</p></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="btn-back">← Back</button>
+        <button class="btn" data-action="edit-customer" data-id="${c.id}">Edit</button>
+        <button class="btn ${c.active?'danger':'primary'}" id="btn-toggle-active">${c.active?'Deactivate':'Activate'}</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>General & Sales Area</h3>
+      <div class="kv-grid">
+        <div class="kv"><div class="l">Phone</div><div class="v">${escapeHtml(c.phone||'—')}</div></div>
+        <div class="kv"><div class="l">Email</div><div class="v">${escapeHtml(c.email||'—')}</div></div>
+        <div class="kv"><div class="l">Sales Organization</div><div class="v">${escapeHtml(c.salesOrg||'—')}</div></div>
+        <div class="kv"><div class="l">Distribution Channel</div><div class="v">${escapeHtml(c.distChannel||'—')}</div></div>
+        <div class="kv"><div class="l">Division</div><div class="v">${escapeHtml(c.division||'—')}</div></div>
+        <div class="kv"><div class="l">Payment Terms</div><div class="v">${termLabel(c.paymentTerms)}</div></div>
+        <div class="kv"><div class="l">Incoterms</div><div class="v">${escapeHtml(c.incoterms||'—')}</div></div>
+        <div class="kv"><div class="l">Credit Limit</div><div class="v">${fmtMoney(c.creditLimit,c.currency)}</div></div>
+        <div class="kv"><div class="l">Risk Category</div><div class="v">${escapeHtml(c.riskCategory||'—')}</div></div>
+        <div class="kv"><div class="l">Reconciliation Account</div><div class="v">${escapeHtml(c.reconAccount||'—')}</div></div>
+      </div>
+    </div>
+    <div class="card"><h3>Transaction History — Sales Orders</h3>${renderMiniOrderTable(orders)}</div>
+    <div class="card"><h3>Quotations</h3>${quotes.length? quotationsTable(quotes) : emptyState('No quotations for this customer yet.','')}</div>
+    <div class="card"><h3>Invoices</h3>${invoices.length? invoicesTable(invoices) : emptyState('No invoices for this customer yet.','')}</div>
+  `;
+}
+
+/* ---------------- Materials ---------------- */
+function renderMaterials(){
+  return `
+    <div class="page-head">
+      <div><h1 class="page-title">Material Master</h1><p class="page-sub">Products and their plant, stock, and pricing data.</p></div>
+      <button class="btn primary" id="btn-new-material">+ Create Material</button>
+    </div>
+    <div class="table-toolbar customer-search-toolbar">
+      <div class="customer-search-box">
+        <span class="customer-search-icon">⌕</span>
+        <input type="text" id="mat-search" placeholder="Search material by ID, description or search term..." autocomplete="off">
+        <button type="button" class="customer-clear-btn" id="mat-clear" title="Clear search" aria-label="Clear material search">×</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table class="grid" id="mat-table"><thead><tr>
+      <th>Material</th><th>Description</th><th>Type</th><th>Plant</th><th>Stock</th><th>Reorder Level</th><th>Standard Price</th><th></th>
+    </tr></thead><tbody>${matRows(DB.materials)}</tbody></table></div>
+  `;
+}
+function matRows(list){
+  if(list.length===0) return `<tr><td colspan="8">${emptyState('No materials found.','Create a material to get started.')}</td></tr>`;
+  return list.map(m=>`<tr>
+    <td><span class="cell-link" data-nav="materialDetail" data-id="${m.id}">${m.id}</span></td><td>${escapeHtml(m.description)}</td><td>${escapeHtml(m.type||'')}</td><td>${escapeHtml(m.plant||'')}</td>
+    <td>${m.stock <= m.reorderLevel ? badge(m.stock+' Low','amber') : m.stock}</td><td>${m.reorderLevel}</td>
+    <td>${fmtMoney(m.standardPrice)}</td>
+    <td><button class="btn small" data-action="edit-material" data-id="${m.id}">Edit</button></td>
+  </tr>`).join('');
+}
+function materialFormHtml(existing){
+  const m = existing || {};
+  return `<form id="material-form" class="form-grid">
+    <div class="field"><label>Material Description <span class="req">*</span></label><input required name="description" value="${escapeHtml(m.description||'')}"></div>
+    <div class="field"><label>Search Term</label><input name="searchTerm" value="${escapeHtml(m.searchTerm||'')}"></div>
+    <div class="field"><label>Material Type</label><select name="type">${opts(MATERIAL_TYPES,m.type)}</select></div>
+    <div class="field"><label>Product Category</label><input name="category" value="${escapeHtml(m.category||'Electronics')}"></div>
+    <div class="field"><label>Base Unit of Measure</label><input name="baseUOM" value="${escapeHtml(m.baseUOM||'EA')}"></div>
+    <div class="field"><label>Sales Unit</label><input name="salesUnit" value="${escapeHtml(m.salesUnit||'EA')}"></div>
+    <div class="field"><label>Plant</label><select name="plant">${opts(PLANTS,m.plant)}</select></div>
+    <div class="field"><label>Storage Location</label><select name="storageLoc">${opts(STORAGE_LOCS,m.storageLoc)}</select></div>
+    <div class="field"><label>Available Stock <span class="req">*</span></label><input required type="number" min="0" name="stock" value="${m.stock!=null?m.stock:100}"></div>
+    <div class="field"><label>Reorder Level</label><input type="number" min="0" name="reorderLevel" value="${m.reorderLevel!=null?m.reorderLevel:10}"></div>
+    <div class="field"><label>Standard Price <span class="req">*</span></label><input required type="number" min="0" name="standardPrice" value="${m.standardPrice||0}"></div>
+    <div class="field"><label>Tax Category</label><select name="taxCategory">${opts(TAX_CATEGORIES,m.taxCategory)}</select></div>
+    <div class="field"><label>Weight (kg)</label><input type="number" min="0" name="weight" value="${m.weight||1}"></div>
+  </form>`;
+}
+function openMaterialForm(existingId){
+  const existing = existingId ? findMaterial(existingId) : null;
+  openModal(existing?'Edit Material '+existing.id:'Create Material', materialFormHtml(existing), [
+    {label:'Cancel', onClick: closeModal},
+    {label: existing?'Save Changes':'Create Material', cls:'primary', onClick:()=>{
+      const form = document.getElementById('material-form');
+      if(!form.reportValidity()) return;
+      const data = readForm(form);
+      data.stock = Number(data.stock); data.reorderLevel = Number(data.reorderLevel); data.standardPrice = Number(data.standardPrice); data.weight = Number(data.weight);
+      if(existing){ updateMaterial(existing.id, data); toast('Material '+existing.id+' updated.','success'); }
+      else { const m = createMaterial(data); toast('Material '+m.id+' created.','success'); }
+      closeModal(); renderView();
+    }}
+  ]);
+}
+
+function renderMaterialDetail(params){
+  const m = findMaterial(params.id);
+  if(!m) return emptyState('Material not found.','');
+
+  const orders = DB.salesOrders.filter(o=>o.materialId===m.id);
+  const quotes = DB.quotations.filter(q=>q.materialId===m.id);
+  const deliveries = DB.deliveries.filter(d=>d.materialId===m.id);
+  const invoices = deliveries.map(d=>d.invoiceId).filter(Boolean).map(id=>DB.invoices.find(i=>i.id===id)).filter(Boolean);
+  const materialDocs = DB.materialDocs.filter(d=>d.materialId===m.id);
+
+  return `
+    ${crumbs(['Material Master', m.id])}
+    <div class="page-head">
+      <div><h1 class="page-title">${escapeHtml(m.description)}</h1><p class="page-sub">${m.id} · ${escapeHtml(m.plant||'—')}</p></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="btn-back">← Back</button>
+        <button class="btn" data-action="edit-material" data-id="${m.id}">Edit</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>General & Plant Data</h3>
+      <div class="kv-grid">
+        <div class="kv"><div class="l">Material ID</div><div class="v mono">${m.id}</div></div>
+        <div class="kv"><div class="l">Search Term</div><div class="v">${escapeHtml(m.searchTerm||'—')}</div></div>
+        <div class="kv"><div class="l">Material Type</div><div class="v">${escapeHtml(m.type||'—')}</div></div>
+        <div class="kv"><div class="l">Product Category</div><div class="v">${escapeHtml(m.category||'—')}</div></div>
+        <div class="kv"><div class="l">Base Unit of Measure</div><div class="v">${escapeHtml(m.baseUOM||'—')}</div></div>
+        <div class="kv"><div class="l">Sales Unit</div><div class="v">${escapeHtml(m.salesUnit||'—')}</div></div>
+        <div class="kv"><div class="l">Plant</div><div class="v">${escapeHtml(m.plant||'—')}</div></div>
+        <div class="kv"><div class="l">Storage Location</div><div class="v">${escapeHtml(m.storageLoc||'—')}</div></div>
+        <div class="kv"><div class="l">Tax Category</div><div class="v">${escapeHtml(m.taxCategory||'—')}</div></div>
+        <div class="kv"><div class="l">Weight</div><div class="v">${m.weight!=null ? escapeHtml(m.weight)+' kg' : '—'}</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Stock & Valuation</h3>
+      <div class="kv-grid">
+        <div class="kv"><div class="l">Available Stock</div><div class="v">${m.stock <= m.reorderLevel ? badge(m.stock+' Low','amber') : escapeHtml(m.stock)}</div></div>
+        <div class="kv"><div class="l">Reorder Level</div><div class="v">${escapeHtml(m.reorderLevel)}</div></div>
+        <div class="kv"><div class="l">Standard Price</div><div class="v">${fmtMoney(m.standardPrice)}</div></div>
+      </div>
+    </div>
+
+    <div class="card"><h3>Transaction History — Sales Orders</h3>${renderMiniOrderTable(orders)}</div>
+    <div class="card"><h3>Quotations</h3>${quotes.length ? quotationsTable(quotes) : emptyState('No quotations for this material yet.','')}</div>
+    <div class="card"><h3>Deliveries</h3>${deliveries.length ? `<div class="table-wrap"><table class="grid"><thead><tr><th>Delivery</th><th>Sales Order</th><th>Customer</th><th>Qty</th><th>Status</th></tr></thead><tbody>${deliveries.slice().reverse().map(d=>`<tr><td><span class="cell-link" data-nav="deliveryDetail" data-id="${d.id}">${d.id}</span></td><td><span class="cell-link" data-nav="salesOrderDetail" data-id="${d.salesOrderId}">${d.salesOrderId}</span></td><td>${escapeHtml(custName(d.customerId))}</td><td>${d.quantity}</td><td>${statusBadge(d.pgiStatus||'Open')}</td></tr>`).join('')}</tbody></table></div>` : emptyState('No deliveries for this material yet.','')}</div>
+    <div class="card"><h3>Invoices</h3>${invoices.length ? invoicesTable(invoices) : emptyState('No invoices for this material yet.','')}</div>
+    <div class="card"><h3>Material Documents</h3>${materialDocs.length ? `<div class="table-wrap"><table class="grid"><thead><tr><th>Material Document</th><th>Delivery</th><th>Quantity</th><th>Posted</th></tr></thead><tbody>${materialDocs.slice().reverse().map(d=>`<tr><td class="mono">${d.id}</td><td>${escapeHtml(d.deliveryId||'—')}</td><td>${d.quantity||'—'}</td><td>${fmtDateTime(d.createdAt||d.postedAt)}</td></tr>`).join('')}</tbody></table></div>` : emptyState('No material documents for this material yet.','')}</div>
+  `;
+}
+
+/* ---------------- Inquiries ---------------- */
+function renderInquiries(){
+  return `
+    <div class="page-head">
+      <div><h1 class="page-title">Sales Inquiry</h1><p class="page-sub">Pre-sales document capturing a customer's interest before a formal quotation.</p></div>
+      <button class="btn primary" id="btn-new-inquiry" ${noMasterData()}>+ Create Inquiry</button>
+    </div>
+    ${masterDataWarning()}
+    <div class="table-wrap"><table class="grid"><thead><tr>
+      <th>Inquiry</th><th>Customer</th><th>Material</th><th>Qty</th><th>Date</th><th>Status</th><th></th>
+    </tr></thead><tbody>${inquiryRows(DB.inquiries)}</tbody></table></div>
+  `;
+}
+function noMasterData(){ return (DB.customers.length===0 || DB.materials.length===0) ? 'disabled title="Create a customer and material first"' : ''; }
+function masterDataWarning(){
+  if(DB.customers.length===0 || DB.materials.length===0){
+    return `<div class="banner warn">⚠ Create at least one Customer and one Material before creating sales documents.</div>`;
+  }
+  return '';
+}
+function inquiryRows(list){
+  if(list.length===0) return `<tr><td colspan="7">${emptyState('No inquiries yet.','Create an inquiry to begin the sales process.')}</td></tr>`;
+  return list.map(i=>`<tr>
+    <td><span class="cell-link" data-nav="inquiryDetail" data-id="${i.id}">${i.id}</span></td>
+    <td>${escapeHtml(custName(i.customerId))}</td><td>${escapeHtml(matName(i.materialId))}</td><td>${i.quantity}</td>
+    <td>${fmtDate(i.inquiryDate)}</td><td>${statusBadge(i.status)}</td>
+    <td>${i.status==='Open' ? `<button class="btn small primary" data-action="convert-inquiry" data-id="${i.id}">Convert to Quotation</button>` : ''}</td>
+  </tr>`).join('');
+}
+function inquiryFormHtml(){
+  return `<form id="inquiry-form" class="form-grid">
+    <div class="field">
+      <label>Customer <span class="req">*</span></label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select required name="customerId" id="so-customer" style="flex:1">
+          ${DB.customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)} (${c.id})</option>`).join('')}
+        </select>
+        <button type="button" class="btn small" id="so-new-customer" title="Create a new customer master">+ New Customer</button>
+      </div>
+      <div class="field-note">Customer ID is created automatically when the customer master is saved. A sales order uses an existing customer.</div>
+    </div>
+    <div class="field"><label>Material <span class="req">*</span></label><select required name="materialId">${DB.materials.map(m=>`<option value="${m.id}">${escapeHtml(m.description)} (${m.id})</option>`).join('')}</select></div>
+    <div class="field"><label>Quantity <span class="req">*</span></label><input required type="number" min="1" name="quantity" value="10"></div>
+    <div class="field"><label>Requested Delivery Date</label><input type="date" name="requestedDeliveryDate"></div>
+    <div class="field"><label>Valid Until</label><input type="date" name="validUntil"></div>
+    <div class="field" style="grid-column:1/-1"><label>Customer Notes</label><textarea name="notes" rows="2"></textarea></div>
+  </form>`;
+}
+function openInquiryForm(){
+  openModal('Create Sales Inquiry', inquiryFormHtml(), [
+    {label:'Cancel', onClick: closeModal},
+    {label:'Create Inquiry', cls:'primary', onClick:()=>{
+      const form = document.getElementById('inquiry-form');
+      if(!form.reportValidity()) return;
+      const data = readForm(form);
+      data.quantity = Number(data.quantity);
+      data.inquiryDate = todayISO();
+      data.validUntil = data.validUntil || addDays(todayISO(),15);
+      data.requestedDeliveryDate = data.requestedDeliveryDate || addDays(todayISO(),10);
+      const inq = createInquiry(data);
+      toast('Inquiry '+inq.id+' created.','success');
+      closeModal(); navigate('inquiryDetail', {id: inq.id});
+    }}
+  ]);
+}
+function renderInquiryDetail(params){
+  const inq = DB.inquiries.find(i=>i.id===params.id);
+  if(!inq) return emptyState('Inquiry not found.','');
+  return `
+    ${crumbs(['Sales Inquiry', inq.id])}
+    <div class="page-head">
+      <div><h1 class="page-title">Inquiry ${inq.id}</h1><p class="page-sub">${statusBadge(inq.status)}</p></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="btn-back">← Back</button>
+        ${inq.status==='Open' ? `<button class="btn primary" data-action="convert-inquiry" data-id="${inq.id}">Convert to Quotation</button>` : ''}
+      </div>
+    </div>
+    <div class="card"><div class="kv-grid">
+      <div class="kv"><div class="l">Customer</div><div class="v">${escapeHtml(custName(inq.customerId))}</div></div>
+      <div class="kv"><div class="l">Material</div><div class="v">${escapeHtml(matName(inq.materialId))}</div></div>
+      <div class="kv"><div class="l">Quantity</div><div class="v">${inq.quantity}</div></div>
+      <div class="kv"><div class="l">Inquiry Date</div><div class="v">${fmtDate(inq.inquiryDate)}</div></div>
+      <div class="kv"><div class="l">Valid Until</div><div class="v">${fmtDate(inq.validUntil)}</div></div>
+      <div class="kv"><div class="l">Requested Delivery</div><div class="v">${fmtDate(inq.requestedDeliveryDate)}</div></div>
+    </div>
+    ${inq.notes?`<p class="muted" style="margin-top:12px">Notes: ${escapeHtml(inq.notes)}</p>`:''}
+    </div>
+    ${auditCard(inq)}
+  `;
+}
+function auditCard(doc){
+  if(!doc.audit || doc.audit.length===0) return '';
+  return `<div class="card"><h3>Audit Trail</h3>${doc.audit.map(a=>`<div class="stat-line"><span class="l">${escapeHtml(a.action)}</span><span class="v" style="font-weight:500">${fmtDateTime(a.at)}</span></div>`).join('')}</div>`;
+}
+
+/* ---------------- Quotations ---------------- */
+function renderQuotations(){
+  return `
+    <div class="page-head">
+      <div><h1 class="page-title">Quotation</h1><p class="page-sub">Binding price offer sent to the customer with validity period.</p></div>
+      <button class="btn primary" id="btn-new-quotation" ${noMasterData()}>+ Create Quotation</button>
+    </div>
+    ${masterDataWarning()}
+    ${quotationsTable(DB.quotations)}
+  `;
+}
+function quotationsTable(list){
+  if(list.length===0) return `<div class="table-wrap"><table class="grid"><tbody><tr><td>${emptyState('No quotations yet.','Convert an inquiry or create one directly.')}</td></tr></tbody></table></div>`;
+  return `<div class="table-wrap"><table class="grid"><thead><tr><th>Quotation</th><th>Customer</th><th>Material</th><th>Net Value</th><th>Valid To</th><th>Status</th><th></th></tr></thead><tbody>
+    ${list.map(q=>`<tr>
+      <td><span class="cell-link" data-nav="quotationDetail" data-id="${q.id}">${q.id}</span></td>
+      <td>${escapeHtml(custName(q.customerId))}</td><td>${escapeHtml(matName(q.materialId))}</td>
+      <td>${fmtMoney(q.net,q.currency)}</td><td>${fmtDate(q.validTo)}</td><td>${statusBadge(q.status)}</td>
+      <td>${['Draft','Active'].includes(q.status)?`<button class="btn small" data-action="accept-quotation" data-id="${q.id}">Accept</button> <button class="btn small primary" data-action="convert-quotation" data-id="${q.id}">Create Sales Order</button>`:''}</td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+function quotationFormHtml(){
+  return `<form id="quotation-form" class="form-grid">
+    <div class="field"><label>Customer <span class="req">*</span></label><select required name="customerId">${DB.customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)} (${c.id})</option>`).join('')}</select></div>
+    <div class="field"><label>Material <span class="req">*</span></label><select required name="materialId" id="qt-material">${DB.materials.map(m=>`<option value="${m.id}" data-price="${m.standardPrice}">${escapeHtml(m.description)} (${m.id})</option>`).join('')}</select></div>
+    <div class="field"><label>Quantity <span class="req">*</span></label><input required type="number" min="1" name="quantity" value="10"></div>
+    <div class="field"><label>Unit Price <span class="req">*</span></label><input required type="number" min="0" name="unitPrice" id="qt-price" value="${DB.materials[0]?DB.materials[0].standardPrice:0}"></div>
+    <div class="field"><label>Discount %</label><input type="number" min="0" max="100" name="discountPct" value="0"></div>
+    <div class="field"><label>Tax %</label><input type="number" min="0" max="100" name="taxPct" value="18"></div>
+    <div class="field"><label>Currency</label><select name="currency"><option>INR</option><option>USD</option><option>EUR</option></select></div>
+    <div class="field"><label>Payment Terms</label><select name="paymentTerms">${PAYMENT_TERMS.map(t=>`<option value="${t.code}">${t.code} - ${t.label}</option>`).join('')}</select></div>
+    <div class="field"><label>Incoterms</label><select name="incoterms">${opts(INCOTERMS)}</select></div>
+    <div class="field"><label>Valid To</label><input type="date" name="validTo"></div>
+  </form>`;
+}
+function openQuotationForm(){
+  openModal('Create Quotation', quotationFormHtml(), [
+    {label:'Cancel', onClick: closeModal},
+    {label:'Create Quotation', cls:'primary', onClick:()=>{
+      const form = document.getElementById('quotation-form');
+      if(!form.reportValidity()) return;
+      const data = readForm(form);
+      data.quantity = Number(data.quantity); data.unitPrice = Number(data.unitPrice);
+      data.discountPct = Number(data.discountPct); data.taxPct = Number(data.taxPct);
+      data.validTo = data.validTo || addDays(todayISO(),30);
+      const qt = createQuotation(data);
+      toast('Quotation '+qt.id+' created.','success');
+      closeModal(); navigate('quotationDetail', {id: qt.id});
+    }}
+  ]);
+  setTimeout(()=>{
+    const matSel = document.getElementById('qt-material');
+    if(matSel) matSel.addEventListener('change', e=>{
+      const price = e.target.selectedOptions[0].dataset.price;
+      document.getElementById('qt-price').value = price;
+    });
+  },0);
+}
+function renderQuotationDetail(params){
+  const qt = DB.quotations.find(q=>q.id===params.id);
+  if(!qt) return emptyState('Quotation not found.','');
+  return `
+    ${crumbs(['Quotation', qt.id])}
+    <div class="page-head">
+      <div><h1 class="page-title">Quotation ${qt.id}</h1><p class="page-sub">${statusBadge(qt.status)} ${qt.inquiryId?' · From Inquiry <a class="cell-link" data-nav="inquiryDetail" data-id="'+qt.inquiryId+'">'+qt.inquiryId+'</a>':''}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="btn-back">← Back</button>
+        ${['Draft','Active'].includes(qt.status)?`<button class="btn" data-action="accept-quotation" data-id="${qt.id}">Accept Quotation</button><button class="btn primary" data-action="convert-quotation" data-id="${qt.id}">Create Sales Order</button>`:''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="kv-grid">
+        <div class="kv"><div class="l">Customer</div><div class="v">${escapeHtml(custName(qt.customerId))}</div></div>
+        <div class="kv"><div class="l">Material</div><div class="v">${escapeHtml(matName(qt.materialId))}</div></div>
+        <div class="kv"><div class="l">Quantity</div><div class="v">${qt.quantity}</div></div>
+        <div class="kv"><div class="l">Unit Price</div><div class="v">${fmtMoney(qt.unitPrice,qt.currency)}</div></div>
+        <div class="kv"><div class="l">Valid From → To</div><div class="v">${fmtDate(qt.validFrom)} → ${fmtDate(qt.validTo)}</div></div>
+        <div class="kv"><div class="l">Payment Terms</div><div class="v">${termLabel(qt.paymentTerms)}</div></div>
+        <div class="kv"><div class="l">Incoterms</div><div class="v">${escapeHtml(qt.incoterms||'—')}</div></div>
+      </div>
+      <div class="section-title">Pricing</div>
+      <div class="stat-line"><span class="l">Gross Value</span><span class="v">${fmtMoney(qt.gross,qt.currency)}</span></div>
+      <div class="stat-line"><span class="l">Discount (${qt.discountPct}%)</span><span class="v">- ${fmtMoney(qt.discount,qt.currency)}</span></div>
+      <div class="stat-line"><span class="l">Tax (${qt.taxPct}%)</span><span class="v">+ ${fmtMoney(qt.tax,qt.currency)}</span></div>
+      <div class="stat-line"><span class="l"><strong>Net Value</strong></span><span class="v">${fmtMoney(qt.net,qt.currency)}</span></div>
+    </div>
+    ${auditCard(qt)}
+    <div class="no-print"><button class="btn" onclick="window.print()">🖶 Print Quotation</button></div>
+  `;
+}
+
+/* ---------------- Sales Orders ---------------- */
+function renderSalesOrders(){
+  return `
+    <div class="page-head">
+      <div><h1 class="page-title">Sales Orders</h1><p class="page-sub">Customer's confirmed request to deliver goods or services.</p></div>
+      <button class="btn primary" id="btn-new-so" ${noMasterData()}>+ Create Sales Order</button>
+    </div>
+    ${masterDataWarning()}
+    <div class="table-wrap"><table class="grid"><thead><tr>
+      <th>Order</th><th>Customer</th><th>Material</th><th>Qty</th><th>Net Value</th><th>Date</th><th>Status</th>
+    </tr></thead><tbody>${salesOrderRows(DB.salesOrders)}</tbody></table></div>
+  `;
+}
+function salesOrderRows(list){
+  if(list.length===0) return `<tr><td colspan="7">${emptyState('No sales orders yet.','')}</td></tr>`;
+  return list.slice().reverse().map(o=>`<tr>
+    <td><span class="cell-link" data-nav="salesOrderDetail" data-id="${o.id}">${o.id}</span></td>
+    <td>${escapeHtml(custName(o.customerId))}</td><td>${escapeHtml(matName(o.materialId))}</td><td>${o.quantity}</td>
+    <td>${fmtMoney(o.net,o.currency)}</td><td>${fmtDate(o.createdAt)}</td><td>${statusBadge(o.status)}</td>
+  </tr>`).join('');
+}
+function salesOrderFormHtml(){
+  return `<form id="so-form" class="form-grid">
+    <div class="field"><label>Customer <span class="req">*</span></label><select required name="customerId">${DB.customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)} (${c.id})</option>`).join('')}</select></div>
+    <div class="field"><label>Customer PO Number</label><input name="customerPO" placeholder="e.g. PO-2026-001"></div>
+    <div class="field"><label>Material <span class="req">*</span></label><select required name="materialId" id="so-material">${DB.materials.map(m=>`<option value="${m.id}" data-price="${m.standardPrice}" data-stock="${m.stock}">${escapeHtml(m.description)} (${m.id}) — Stock: ${m.stock}</option>`).join('')}</select></div>
+    <div class="field"><label>Quantity <span class="req">*</span></label><input required type="number" min="1" name="quantity" value="10" id="so-qty"></div>
+    <div class="field"><label>Unit Price <span class="req">*</span></label><input required type="number" min="0" name="unitPrice" id="so-price" value="${DB.materials[0]?DB.materials[0].standardPrice:0}"></div>
+    <div class="field"><label>Discount %</label><input type="number" min="0" max="100" name="discountPct" value="0"></div>
+    <div class="field"><label>Tax %</label><input type="number" min="0" max="100" name="taxPct" value="18"></div>
+    <div class="field"><label>Currency</label><select name="currency"><option>INR</option><option>USD</option><option>EUR</option></select></div>
+    <div class="field"><label>Payment Terms</label><select name="paymentTerms">${PAYMENT_TERMS.map(t=>`<option value="${t.code}">${t.code} - ${t.label}</option>`).join('')}</select></div>
+    <div class="field"><label>Incoterms</label><select name="incoterms">${opts(INCOTERMS)}</select></div>
+    <div class="field"><label>Requested Delivery Date</label><input type="date" name="requestedDeliveryDate"></div>
+    <div class="field" id="so-stock-note" style="grid-column:1/-1"></div>
+  </form>`;
+}
+function refreshSalesOrderCustomers(selectedId){
+  const sel = document.getElementById('so-customer');
+  if(!sel) return;
+
+  sel.innerHTML = DB.customers.map(c=>
+    `<option value="${c.id}">${escapeHtml(c.name)} (${c.id})</option>`
+  ).join('');
+
+  if(selectedId && DB.customers.some(c=>c.id===selectedId)){
+    sel.value = selectedId;
+  }
+}
+
+function openSalesOrderForm(){
+  openModal('Create Sales Order', salesOrderFormHtml(), [
+    {label:'Cancel', onClick: closeModal},
+    {label:'Create Sales Order', cls:'primary', onClick:()=>{
+      const form = document.getElementById('so-form');
+      if(!form.reportValidity()) return;
+      const data = readForm(form);
+      data.quantity = Number(data.quantity); data.unitPrice = Number(data.unitPrice);
+      data.discountPct = Number(data.discountPct); data.taxPct = Number(data.taxPct);
+      if(!findCustomer(data.customerId)){ toast('Customer master record not found.','error'); return; }
+      if(!findMaterial(data.materialId)){ toast('Material does not exist.','error'); return; }
+      if(data.quantity<=0){ toast('Quantity must be greater than zero.','error'); return; }
+      data.requestedDeliveryDate = data.requestedDeliveryDate || addDays(todayISO(),5);
+      const so = createSalesOrder(data);
+      toast('Sales Order '+so.id+' created. Availability check completed.','success');
+      closeModal(); navigate('salesOrderDetail', {id: so.id});
+    }}
+  ]);
+  setTimeout(()=>{
+    const newCustomerBtn = document.getElementById('so-new-customer');
+    if(newCustomerBtn){
+      newCustomerBtn.addEventListener('click', ()=>{
+        openCustomerForm();
+      });
+    }
+
+    const sel = document.getElementById('so-material');
+    const note = document.getElementById('so-stock-note');
+    function update(){
+      const opt = sel.selectedOptions[0];
+      document.getElementById('so-price').value = opt.dataset.price;
+      const stock = Number(opt.dataset.stock);
+      const qty = Number(document.getElementById('so-qty').value)||0;
+      note.innerHTML = qty>stock ? `<div class="banner warn" style="margin:0">⚠ Requested quantity (${qty}) exceeds available stock (${stock}). Order will be partially confirmed with a backorder.</div>` : `<div class="banner info" style="margin:0">Available stock: ${stock}</div>`;
+    }
+    sel.addEventListener('change', update);
+    document.getElementById('so-qty').addEventListener('input', update);
+    update();
+  },0);
+}
+function renderSalesOrderDetail(params){
+  const so = DB.salesOrders.find(s=>s.id===params.id);
+  if(!so) return emptyState('Sales order not found.','');
+  const ac = so.availabilityCheck;
+  const deliveries = DB.deliveries.filter(d=>d.salesOrderId===so.id);
+  const remaining = so.confirmedQty - deliveredQtyForSO(so.id);
+  return `
+    ${crumbs(['Sales Orders', so.id])}
+    <div class="page-head">
+      <div><h1 class="page-title">Sales Order ${so.id}</h1><p class="page-sub">${statusBadge(so.status)} ${so.quotationId?' · From Quotation <a class="cell-link" data-nav="quotationDetail" data-id="'+so.quotationId+'">'+so.quotationId+'</a>':''}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="btn-back">← Back</button>
+        <button class="btn" data-action="show-docflow" data-so="${so.id}">Document Flow</button>
+        ${deliveryEligible(so) ? `<button class="btn primary" data-action="create-delivery" data-so="${so.id}">Create Delivery (${remaining} remaining)</button>` : ''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">Header</div>
+      <div class="kv-grid">
+        <div class="kv"><div class="l">Customer</div><div class="v">${escapeHtml(custName(so.customerId))}</div></div>
+        <div class="kv"><div class="l">Customer PO</div><div class="v">${escapeHtml(so.customerPO||'—')}</div></div>
+        <div class="kv"><div class="l">Sales Organization</div><div class="v">${escapeHtml(so.salesOrg)}</div></div>
+        <div class="kv"><div class="l">Distribution Channel</div><div class="v">${escapeHtml(so.distChannel)}</div></div>
+        <div class="kv"><div class="l">Division</div><div class="v">${escapeHtml(so.division)}</div></div>
+        <div class="kv"><div class="l">Currency</div><div class="v">${so.currency}</div></div>
+        <div class="kv"><div class="l">Payment Terms</div><div class="v">${termLabel(so.paymentTerms)}</div></div>
+        <div class="kv"><div class="l">Incoterms</div><div class="v">${escapeHtml(so.incoterms||'—')}</div></div>
+      </div>
+      <div class="section-title">Item</div>
+      <div class="kv-grid">
+        <div class="kv"><div class="l">Material</div><div class="v">${escapeHtml(matName(so.materialId))}</div></div>
+        <div class="kv"><div class="l">Quantity</div><div class="v">${so.quantity}</div></div>
+        <div class="kv"><div class="l">Unit Price</div><div class="v">${fmtMoney(so.unitPrice,so.currency)}</div></div>
+        <div class="kv"><div class="l">Plant / Storage Loc</div><div class="v">${escapeHtml(so.plant)} / ${escapeHtml(so.storageLoc)}</div></div>
+      </div>
+      <div class="stat-line"><span class="l">Gross Value</span><span class="v">${fmtMoney(so.gross,so.currency)}</span></div>
+      <div class="stat-line"><span class="l">Discount (${so.discountPct}%)</span><span class="v">- ${fmtMoney(so.discount,so.currency)}</span></div>
+      <div class="stat-line"><span class="l">Tax (${so.taxPct}%)</span><span class="v">+ ${fmtMoney(so.tax,so.currency)}</span></div>
+      <div class="stat-line"><span class="l"><strong>Net Value</strong></span><span class="v">${fmtMoney(so.net,so.currency)}</span></div>
+    </div>
+    ${ac?`<div class="card"><h3>Schedule Line — Availability Check</h3>
+      <div class="kv-grid">
+        <div class="kv"><div class="l">Requested Delivery</div><div class="v">${fmtDate(so.requestedDeliveryDate)}</div></div>
+        <div class="kv"><div class="l">Requested Qty</div><div class="v">${ac.requestedQty}</div></div>
+        <div class="kv"><div class="l">Available Stock (at check)</div><div class="v">${ac.availableStock}</div></div>
+        <div class="kv"><div class="l">Confirmed Qty</div><div class="v">${ac.confirmedQty}</div></div>
+        <div class="kv"><div class="l">Backorder Qty</div><div class="v">${ac.backorderQty>0?badge(ac.backorderQty,'amber'):'0'}</div></div>
+        <div class="kv"><div class="l">Confirmed Delivery Date</div><div class="v">${fmtDate(ac.confirmedDeliveryDate)}</div></div>
+      </div></div>`:''}
+    <div class="card"><h3>Deliveries</h3>${deliveries.length? deliveriesTable(deliveries) : emptyState('No deliveries created yet.','')}</div>
+    ${auditCard(so)}
+    <div class="no-print"><button class="btn" onclick="window.print()">🖶 Print Sales Order</button></div>
+  `;
+}
+
+/* ---------------- Deliveries ---------------- */
+function renderDeliveries(){
+  const eligibleSOs = DB.salesOrders.filter(deliveryEligible);
+  return `
+    <div class="page-head">
+      <div><h1 class="page-title">Delivery</h1><p class="page-sub">Outbound delivery documents created from confirmed sales orders.</p></div>
+      <button class="btn primary" id="btn-new-delivery" ${eligibleSOs.length===0?'disabled title="No confirmed sales orders eligible for delivery"':''}>+ Create Delivery</button>
+    </div>
+    ${eligibleSOs.length===0 && DB.salesOrders.length>0 ? `<div class="banner info">All confirmed sales orders have been fully delivered, or none are confirmed yet.</div>`:''}
+    ${deliveriesTable(DB.deliveries)}
+  `;
+}
+function deliveriesTable(list){
+  if(list.length===0) return `<div class="table-wrap"><table class="grid"><tbody><tr><td>${emptyState('No deliveries yet.','')}</td></tr></tbody></table></div>`;
+  return `<div class="table-wrap"><table class="grid"><thead><tr><th>Delivery</th><th>Sales Order</th><th>Customer</th><th>Qty</th><th>Picking</th><th>PGI</th><th>Status</th></tr></thead><tbody>
+    ${list.slice().reverse().map(d=>`<tr>
+      <td><span class="cell-link" data-nav="deliveryDetail" data-id="${d.id}">${d.id}</span></td>
+      <td><span class="cell-link" data-nav="salesOrderDetail" data-id="${d.salesOrderId}">${d.salesOrderId}</span></td>
+      <td>${escapeHtml(custName(d.customerId))}</td><td>${d.quantity}</td>
+      <td>${statusBadge(d.pickingStatus==='Completed'?'Picked':(d.pickingStatus==='In Progress'?'Picking':'Not Created'))}</td>
+      <td>${statusBadge(d.pgiStatus==='Completed'?'PGI Completed':'Not Created')}</td>
+      <td>${statusBadge(d.status)}</td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+function deliveryFormHtml(){
+  const eligible = DB.salesOrders.filter(deliveryEligible);
+  return `<form id="delivery-form" class="form-grid">
+    <div class="field" style="grid-column:1/-1"><label>Sales Order <span class="req">*</span></label>
+      <select required name="salesOrderId" id="del-so">${eligible.map(o=>`<option value="${o.id}" data-remaining="${o.confirmedQty-deliveredQtyForSO(o.id)}">${o.id} — ${escapeHtml(custName(o.customerId))} (Remaining: ${o.confirmedQty-deliveredQtyForSO(o.id)})</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Delivery Quantity <span class="req">*</span></label><input required type="number" min="1" name="quantity" id="del-qty" value="${eligible[0]?(eligible[0].confirmedQty-deliveredQtyForSO(eligible[0].id)):1}"></div>
+  </form>`;
+}
+function openDeliveryForm(soId){
+  if(DB.salesOrders.filter(deliveryEligible).length===0){ toast('No confirmed sales orders are eligible for delivery.','error'); return; }
+  openModal('Create Delivery', deliveryFormHtml(), [
+    {label:'Cancel', onClick: closeModal},
+    {label:'Create Delivery', cls:'primary', onClick:()=>{
+      const form = document.getElementById('delivery-form');
+      if(!form.reportValidity()) return;
+      const data = readForm(form);
+      const res = createDelivery(data.salesOrderId, Number(data.quantity));
+      if(res.error){ toast(res.error, 'error'); return; }
+      toast('Delivery '+res.delivery.id+' created.','success');
+      closeModal(); navigate('deliveryDetail', {id: res.delivery.id});
+    }}
+  ]);
+  if(soId){ setTimeout(()=>{ const sel = document.getElementById('del-so'); if(sel) sel.value = soId; const opt=sel.selectedOptions[0]; if(opt) document.getElementById('del-qty').value = opt.dataset.remaining; },0); }
+  setTimeout(()=>{
+    const sel = document.getElementById('del-so');
+    if(sel) sel.addEventListener('change', e=>{ document.getElementById('del-qty').value = e.target.selectedOptions[0].dataset.remaining; });
+  },0);
+}
+function renderDeliveryDetail(params){
+  const d = DB.deliveries.find(x=>x.id===params.id);
+  if(!d) return emptyState('Delivery not found.','');
+  const inv = d.invoiceId ? DB.invoices.find(i=>i.id===d.invoiceId) : null;
+  return `
+    ${crumbs(['Delivery', d.id])}
+    <div class="page-head">
+      <div><h1 class="page-title">Delivery ${d.id}</h1><p class="page-sub">${statusBadge(d.status)} · From Sales Order <a class="cell-link" data-nav="salesOrderDetail" data-id="${d.salesOrderId}">${d.salesOrderId}</a></p></div>
+      <button class="btn" id="btn-back">← Back</button>
+    </div>
+    <div class="card">
+      <div class="kv-grid">
+        <div class="kv"><div class="l">Customer</div><div class="v">${escapeHtml(custName(d.customerId))}</div></div>
+        <div class="kv"><div class="l">Material</div><div class="v">${escapeHtml(matName(d.materialId))}</div></div>
+        <div class="kv"><div class="l">Delivery Quantity</div><div class="v">${d.quantity}</div></div>
+        <div class="kv"><div class="l">Delivery Date</div><div class="v">${fmtDate(d.deliveryDate)}</div></div>
+        <div class="kv"><div class="l">Shipping Point</div><div class="v">${escapeHtml(d.shippingPoint)}</div></div>
+        <div class="kv"><div class="l">Plant</div><div class="v">${escapeHtml(d.plant)}</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Picking</h3>
+      <div class="kv-grid" style="margin-bottom:12px">
+        <div class="kv"><div class="l">Picked Quantity</div><div class="v">${d.pickedQty} / ${d.quantity}</div></div>
+        <div class="kv"><div class="l">Remaining</div><div class="v">${d.quantity-d.pickedQty}</div></div>
+        <div class="kv"><div class="l">Storage Location</div><div class="v">${escapeHtml(d.storageLoc)}</div></div>
+        <div class="kv"><div class="l">Bin Location</div><div class="v">BIN-${d.id.slice(-3)}</div></div>
+      </div>
+      ${d.pickingStatus!=='Completed'? `
+        <div class="field" style="max-width:220px;margin-bottom:10px"><label>Picked Quantity</label><input type="number" id="pick-qty-${d.id}" min="0" max="${d.quantity}" value="${d.pickedQty}"></div>
+        <button class="btn primary" data-action="confirm-picking" data-id="${d.id}">Confirm Picking</button>
+      ` : `<div class="banner info">Picking completed.</div><button class="btn" data-action="reset-picking" data-id="${d.id}">Reset Picking</button>`}
+    </div>
+    <div class="card">
+      <h3>Post Goods Issue</h3>
+      ${d.pgiStatus==='Completed' ? `<div class="banner info">PGI posted. Material Document: <strong>${d.materialDocId}</strong></div>` :
+        `<p class="muted">Picking must be completed before goods issue can be posted.</p>
+         <button class="btn primary" data-action="post-pgi" data-id="${d.id}" ${d.pickingStatus!=='Completed'?'disabled':''}>Post Goods Issue</button>`}
+    </div>
+    <div class="card">
+      <h3>Billing</h3>
+      ${inv ? `<p>Invoice <span class="cell-link" data-nav="invoiceDetail" data-id="${inv.id}">${inv.id}</span> — ${statusBadge(inv.status)}</p>` :
+        d.pgiStatus==='Completed' ? `<button class="btn primary" data-action="create-invoice" data-id="${d.id}">Create Invoice</button>` :
+        `<p class="muted">Billing cannot be created because Post Goods Issue is not completed.</p>`}
+    </div>
+    ${auditCard(d)}
+  `;
+}
+
+/* ---------------- Picking (module view = deliveries needing picking) ---------------- */
+function renderPicking(){
+  const list = DB.deliveries.filter(d=>d.pickingStatus!=='Completed');
+  return `
+    <h1 class="page-title">Picking</h1>
+    <p class="page-sub">Warehouse picking for deliveries awaiting confirmation.</p>
+    ${list.length===0 ? emptyState('Nothing to pick.','All deliveries have completed picking, or no deliveries exist yet.') : `
+    <div class="table-wrap"><table class="grid"><thead><tr><th>Delivery</th><th>Material</th><th>Delivery Qty</th><th>Picked</th><th>Remaining</th><th>Bin</th><th>Action</th></tr></thead><tbody>
+      ${list.map(d=>`<tr>
+        <td><span class="cell-link" data-nav="deliveryDetail" data-id="${d.id}">${d.id}</span></td>
+        <td>${escapeHtml(matName(d.materialId))}</td><td>${d.quantity}</td>
+        <td><input type="number" style="width:70px" id="pick-qty-${d.id}" min="0" max="${d.quantity}" value="${d.pickedQty}"></td>
+        <td>${d.quantity-d.pickedQty}</td><td class="mono">BIN-${d.id.slice(-3)}</td>
+        <td><button class="btn small primary" data-action="confirm-picking" data-id="${d.id}">Confirm</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`}
+  `;
+}
+
+/* ---------------- PGI ---------------- */
+function renderPGI(){
+  const list = DB.deliveries.filter(d=>d.pickingStatus==='Completed' && d.pgiStatus!=='Completed');
+  const done = DB.deliveries.filter(d=>d.pgiStatus==='Completed');
+  return `
+    <h1 class="page-title">Post Goods Issue</h1>
+    <p class="page-sub">Confirm goods leaving the warehouse. This reduces inventory and creates a material document.</p>
+    <div class="section-title">Ready for PGI</div>
+    ${list.length===0? emptyState('Nothing ready for PGI.','Complete picking on a delivery first.') : `
+    <div class="table-wrap"><table class="grid"><thead><tr><th>Delivery</th><th>Sales Order</th><th>Material</th><th>Qty</th><th>Current Stock</th><th>Action</th></tr></thead><tbody>
+      ${list.map(d=>{ const m=findMaterial(d.materialId); return `<tr>
+        <td><span class="cell-link" data-nav="deliveryDetail" data-id="${d.id}">${d.id}</span></td>
+        <td><span class="cell-link" data-nav="salesOrderDetail" data-id="${d.salesOrderId}">${d.salesOrderId}</span></td>
+        <td>${escapeHtml(matName(d.materialId))}</td><td>${d.quantity}</td><td>${m?m.stock:'—'}</td>
+        <td><button class="btn small primary" data-action="post-pgi" data-id="${d.id}">Post Goods Issue</button></td>
+      </tr>`; }).join('')}
+    </tbody></table></div>`}
+    <div class="section-title">Completed Goods Issues</div>
+    ${done.length===0? emptyState('No goods issues posted yet.','') : `
+    <div class="table-wrap"><table class="grid"><thead><tr><th>Delivery</th><th>Material Doc</th><th>Material</th><th>Qty</th><th>Posted</th></tr></thead><tbody>
+      ${done.slice().reverse().map(d=>`<tr><td><span class="cell-link" data-nav="deliveryDetail" data-id="${d.id}">${d.id}</span></td><td class="mono">${d.materialDocId||'—'}</td><td>${escapeHtml(matName(d.materialId))}</td><td>${d.quantity}</td><td>${fmtDateTime(d.audit.find(a=>a.action.startsWith('PGI'))?.at)}</td></tr>`).join('')}
+    </tbody></table></div>`}
+  `;
+}
+
+/* ---------------- Billing ---------------- */
+function renderBilling(){
+  const readyDeliveries = DB.deliveries.filter(d=>d.pgiStatus==='Completed' && !d.invoiceId);
+  return `
+    <h1 class="page-title">Billing</h1>
+    <p class="page-sub">Create invoices for delivered goods. Billing requires Post Goods Issue to be completed first.</p>
+    <div class="section-title">Ready to Bill</div>
+    ${readyDeliveries.length===0? emptyState('Nothing ready to bill.','Post goods issue on a delivery to enable billing.') : `
+    <div class="table-wrap"><table class="grid"><thead><tr><th>Delivery</th><th>Sales Order</th><th>Customer</th><th>Qty</th><th>Action</th></tr></thead><tbody>
+      ${readyDeliveries.map(d=>`<tr>
+        <td>${d.id}</td><td><span class="cell-link" data-nav="salesOrderDetail" data-id="${d.salesOrderId}">${d.salesOrderId}</span></td>
+        <td>${escapeHtml(custName(d.customerId))}</td><td>${d.quantity}</td>
+        <td><button class="btn small primary" data-action="create-invoice" data-id="${d.id}">Create Invoice</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`}
+    <div class="section-title">Invoices</div>
+    ${invoicesTable(DB.invoices)}
+  `;
+}
+function invoicesTable(list){
+  if(list.length===0) return emptyState('No invoices yet.','');
+  return `<div class="table-wrap"><table class="grid"><thead><tr><th>Invoice</th><th>Customer</th><th>Net Amount</th><th>Paid</th><th>Due Date</th><th>Status</th></tr></thead><tbody>
+    ${list.slice().reverse().map(i=>{ const overdue = isOverdue(i); return `<tr>
+      <td><span class="cell-link" data-nav="invoiceDetail" data-id="${i.id}">${i.id}</span></td>
+      <td>${escapeHtml(custName(i.customerId))}</td><td>${fmtMoney(i.net,i.currency)}</td><td>${fmtMoney(i.paidAmount,i.currency)}</td>
+      <td>${fmtDate(i.dueDate)}</td><td>${overdue? statusBadge('Overdue') : statusBadge(i.status)}</td>
+    </tr>`; }).join('')}
+  </tbody></table></div>`;
+}
+function renderInvoiceDetail(params){
+  const inv = DB.invoices.find(i=>i.id===params.id);
+  if(!inv) return emptyState('Invoice not found.','');
+  const pays = DB.payments.filter(p=>p.invoiceId===inv.id);
+  const remaining = inv.net - inv.paidAmount;
+  const overdue = isOverdue(inv);
+  return `
+    ${crumbs(['Billing', inv.id])}
+    <div class="page-head">
+      <div><h1 class="page-title">Invoice ${inv.id}</h1><p class="page-sub">${overdue?statusBadge('Overdue'):statusBadge(inv.status)} · Sales Order <a class="cell-link" data-nav="salesOrderDetail" data-id="${inv.salesOrderId}">${inv.salesOrderId}</a></p></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="btn-back">← Back</button>
+        ${remaining>0.01 ? `<button class="btn primary" data-action="record-payment" data-id="${inv.id}">Record Payment</button>`:''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="kv-grid">
+        <div class="kv"><div class="l">Customer</div><div class="v">${escapeHtml(custName(inv.customerId))}</div></div>
+        <div class="kv"><div class="l">Material</div><div class="v">${escapeHtml(matName(inv.materialId))}</div></div>
+        <div class="kv"><div class="l">Quantity</div><div class="v">${inv.quantity}</div></div>
+        <div class="kv"><div class="l">Billing Date</div><div class="v">${fmtDate(inv.billingDate)}</div></div>
+        <div class="kv"><div class="l">Payment Terms</div><div class="v">${termLabel(inv.paymentTerms)}</div></div>
+        <div class="kv"><div class="l">Due Date</div><div class="v">${fmtDate(inv.dueDate)}</div></div>
+      </div>
+      <div class="stat-line"><span class="l">Gross Amount</span><span class="v">${fmtMoney(inv.gross,inv.currency)}</span></div>
+      <div class="stat-line"><span class="l">Tax</span><span class="v">${fmtMoney(inv.tax,inv.currency)}</span></div>
+      <div class="stat-line"><span class="l"><strong>Net Amount</strong></span><span class="v">${fmtMoney(inv.net,inv.currency)}</span></div>
+      <div class="stat-line"><span class="l">Paid Amount</span><span class="v">${fmtMoney(inv.paidAmount,inv.currency)}</span></div>
+      <div class="stat-line"><span class="l">Remaining Amount</span><span class="v">${fmtMoney(remaining,inv.currency)}</span></div>
+    </div>
+    <div class="card"><h3>Payments</h3>${pays.length? paymentsTable(pays): emptyState('No payments recorded yet.','')}</div>
+    ${auditCard(inv)}
+    <div class="no-print"><button class="btn" onclick="window.print()">🖶 Print Invoice</button></div>
+  `;
+}
+
+/* ---------------- Payments ---------------- */
+function renderPayments(){
+  const openInvoices = DB.invoices.filter(i=> (i.net-i.paidAmount) > 0.01 );
+  return `
+    <h1 class="page-title">Payments</h1>
+    <p class="page-sub">Record customer payments against open invoices. Partial payments are supported.</p>
+    <div class="section-title">Open Invoices</div>
+    ${openInvoices.length===0? emptyState('No open invoices.','') : `
+    <div class="table-wrap"><table class="grid"><thead><tr><th>Invoice</th><th>Customer</th><th>Net</th><th>Paid</th><th>Remaining</th><th>Due</th><th>Action</th></tr></thead><tbody>
+      ${openInvoices.map(i=>`<tr>
+        <td><span class="cell-link" data-nav="invoiceDetail" data-id="${i.id}">${i.id}</span></td>
+        <td>${escapeHtml(custName(i.customerId))}</td><td>${fmtMoney(i.net,i.currency)}</td><td>${fmtMoney(i.paidAmount,i.currency)}</td>
+        <td>${fmtMoney(i.net-i.paidAmount,i.currency)}</td><td>${isOverdue(i)?statusBadge('Overdue'):fmtDate(i.dueDate)}</td>
+        <td><button class="btn small primary" data-action="record-payment" data-id="${i.id}">Record Payment</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`}
+    <div class="section-title">All Payments</div>
+    ${DB.payments.length? paymentsTable(DB.payments) : emptyState('No payments recorded yet.','')}
+  `;
+}
+function paymentsTable(list){
+  return `<div class="table-wrap"><table class="grid"><thead><tr><th>Payment</th><th>Invoice</th><th>Date</th><th>Amount</th><th>Method</th><th>Reference</th></tr></thead><tbody>
+    ${list.slice().reverse().map(p=>`<tr><td class="mono">${p.id}</td><td><span class="cell-link" data-nav="invoiceDetail" data-id="${p.invoiceId}">${p.invoiceId}</span></td><td>${fmtDate(p.paymentDate)}</td><td>${fmtMoney(p.amount)}</td><td>${escapeHtml(p.method)}</td><td>${escapeHtml(p.refNo||'—')}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function paymentFormHtml(inv){
+  const remaining = inv.net - inv.paidAmount;
+  return `<form id="payment-form" class="form-grid">
+    <div class="field"><label>Invoice</label><input disabled value="${inv.id} (Outstanding: ${fmtMoney(remaining,inv.currency)})"></div>
+    <div class="field"><label>Amount <span class="req">*</span></label><input required type="number" min="0.01" max="${remaining.toFixed(2)}" step="0.01" name="amount" value="${remaining.toFixed(2)}"></div>
+    <div class="field"><label>Payment Method</label><select name="method">${opts(PAYMENT_METHODS)}</select></div>
+    <div class="field"><label>Reference Number</label><input name="refNo" placeholder="TXN / UTR / Cheque No."></div>
+    <div class="field" style="grid-column:1/-1"><label>Notes</label><textarea name="notes" rows="2"></textarea></div>
+  </form>`;
+}
+function openPaymentForm(invId){
+  const inv = DB.invoices.find(i=>i.id===invId);
+  if(!inv) return;
+  openModal('Record Payment — '+inv.id, paymentFormHtml(inv), [
+    {label:'Cancel', onClick: closeModal},
+    {label:'Record Payment', cls:'primary', onClick:()=>{
+      const form = document.getElementById('payment-form');
+      if(!form.reportValidity()) return;
+      const data = readForm(form);
+      const res = recordPayment(inv.id, Number(data.amount), data.method, data.refNo, data.notes);
+      if(res.error){ toast(res.error,'error'); return; }
+      closeModal();
+      const fresh = DB.invoices.find(i=>i.id===inv.id);
+      if(fresh.status==='Paid'){
+        openModal('Order-to-Cash Process Completed', `<div style="text-align:center;padding:20px 0">
+          <div style="font-size:44px;margin-bottom:10px">✓</div>
+          <h2 style="margin:0 0 8px">Order-to-Cash Process Completed</h2>
+          <p class="muted">Invoice ${inv.id} is fully paid. Sales Order ${inv.salesOrderId} is now Completed.</p>
+        </div>`, [{label:'View Document Flow', cls:'primary', onClick:()=>{ closeModal(); navigate('docflow', {so: inv.salesOrderId}); }}]);
+      } else {
+        toast('Payment recorded. Invoice '+inv.id+' is now '+fresh.status+'.','success');
+      }
+      renderView();
+    }}
+  ]);
+}
+
+/* ---------------- Document Flow ---------------- */
+function renderDocFlow(params){
+  const soId = params.so || (DB.salesOrders.length ? DB.salesOrders[DB.salesOrders.length-1].id : null);
+  return `
+    <h1 class="page-title">Document Flow</h1>
+    <p class="page-sub">Trace a transaction end-to-end: Inquiry → Quotation → Sales Order → Delivery → Picking → PGI → Billing → Payment.</p>
+    <div class="card">
+      <div class="field" style="max-width:340px;margin-bottom:16px"><label>Select Sales Order</label>
+        <select id="docflow-so-select">${DB.salesOrders.slice().reverse().map(o=>`<option value="${o.id}" ${o.id===soId?'selected':''}>${o.id} — ${escapeHtml(custName(o.customerId))}</option>`).join('')}</select>
+      </div>
+      ${soId ? docFlowChain(soId) : emptyState('No sales orders yet.','Create a sales order to see its document flow.')}
+    </div>
+  `;
+}
+function docFlowChain(soId){
+  const so = DB.salesOrders.find(s=>s.id===soId);
+  if(!so) return emptyState('Sales order not found.','');
+  const qt = so.quotationId ? DB.quotations.find(q=>q.id===so.quotationId) : null;
+  const inq = qt && qt.inquiryId ? DB.inquiries.find(i=>i.id===qt.inquiryId) : null;
+  const deliveries = DB.deliveries.filter(d=>d.salesOrderId===so.id);
+  const nodes = [];
+  nodes.push(inq ? node('Inquiry', inq.id, inq.status, 'inquiryDetail') : nodeEmpty('Inquiry'));
+  nodes.push(qt ? node('Quotation', qt.id, qt.status, 'quotationDetail') : nodeEmpty('Quotation'));
+  nodes.push(node('Sales Order', so.id, so.status, 'salesOrderDetail'));
+  let flowHtml = `<div class="flow-chain">${nodes.map((n,i)=> i===0? n : `<span class="flow-arrow-v">→</span>${n}`).join('')}</div>`;
+
+  if(deliveries.length===0){
+    flowHtml += `<div class="flow-chain"><span class="flow-arrow-v">↓</span>${nodeEmpty('Delivery')}</div>`;
+  } else {
+    deliveries.forEach(d=>{
+      const inv = d.invoiceId ? DB.invoices.find(i=>i.id===d.invoiceId) : null;
+      const pays = inv ? DB.payments.filter(p=>p.invoiceId===inv.id) : [];
+      const rowNodes = [
+        node('Delivery', d.id, d.status, 'deliveryDetail'),
+        node('Picking', d.id, d.pickingStatus, 'deliveryDetail'),
+        inv ? node('Billing', inv.id, inv.status, 'invoiceDetail') : nodeEmpty('Billing'),
+      ];
+      flowHtml += `<div class="flow-chain">${rowNodes.map((n,i)=> i===0? n : `<span class="flow-arrow-v">→</span>${n}`).join('')}</div>`;
+      if(pays.length){
+        flowHtml += `<div class="flow-chain">${pays.map((p,i)=> (i===0?'<span class="flow-arrow-v">↳</span>':'') + node('Payment', p.id, 'Recorded', 'invoiceDetail', inv.id)).join('')}</div>`;
+      } else if(inv){
+        flowHtml += `<div class="flow-chain"><span class="flow-arrow-v">↳</span>${nodeEmpty('Payment')}</div>`;
+      }
+    });
+  }
+  return flowHtml;
+}
+function node(type, id, status, navName, overrideId){
+  return `<div class="flow-node" data-nav="${navName}" data-id="${overrideId||id}"><div class="fn-t">${type}</div><div class="fn-id">${id}</div><div class="fn-s">${statusBadge(status)}</div></div>`;
+}
+function nodeEmpty(type){
+  return `<div class="flow-node empty"><div class="fn-t">${type}</div><div class="fn-id">—</div><div class="fn-s">${badge('Not Created','grey')}</div></div>`;
+}
+
+/* ---------------- Order History ---------------- */
+function renderOrderHistory(){
+  return `
+    <h1 class="page-title">Order History</h1>
+    <p class="page-sub">Complete record of every sales order created, including cancelled and completed ones.</p>
+    <div class="table-toolbar">
+      <input type="text" id="oh-search" placeholder="Search order, customer...">
+      <button class="btn small" id="oh-clear">✕ Clear</button>
+      <select id="oh-filter">
+        <option value="all">All</option><option value="open">Open</option><option value="progress">In Progress</option>
+        <option value="delivered">Delivered</option><option value="billed">Billed</option><option value="paid">Paid</option><option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="table-wrap"><table class="grid" id="oh-table"><thead><tr>
+      <th>Order</th><th>Customer</th><th>Order Date</th><th>Amount</th><th>Delivery</th><th>Billing</th><th>Payment</th><th>Overall</th>
+    </tr></thead><tbody>${orderHistoryRows(DB.salesOrders)}</tbody></table></div>
+  `;
+}
+function orderHistoryRows(list){
+  if(list.length===0) return `<tr><td colspan="8">${emptyState('No orders yet.','')}</td></tr>`;
+  return list.slice().reverse().map(o=>{
+    const deliveries = DB.deliveries.filter(d=>d.salesOrderId===o.id);
+    const delivered = deliveries.some(d=>d.pgiStatus==='Completed');
+    const latestDelivery = deliveries[deliveries.length-1] || null;
+    const invs = deliveries.map(d=>d.invoiceId).filter(Boolean).map(id=>DB.invoices.find(i=>i.id===id)).filter(Boolean);
+    const latestInvoice = invs[invs.length-1] || null;
+    const billed = invs.length>0;
+    const paid = invs.length>0 && invs.every(i=>i.status==='Paid');
+
+    // Each Order History status is now a direct link to the next/current process step.
+    // If the next document does not exist yet, take the user back to the Sales Order
+    // where the next action (for example Create Delivery) is available.
+    const deliveryLink = delivered && latestDelivery
+      ? `<span class="cell-link" data-nav="deliveryDetail" data-id="${latestDelivery.id}">${statusBadge('Fully Delivered')}</span>`
+      : `<span class="cell-link" data-nav="salesOrderDetail" data-id="${o.id}">${statusBadge('Not Created')}</span>`;
+
+    const billingLink = billed && latestInvoice
+      ? `<span class="cell-link" data-nav="invoiceDetail" data-id="${latestInvoice.id}">${statusBadge('Billing Created')}</span>`
+      : `<span class="cell-link" data-nav="salesOrderDetail" data-id="${o.id}">${statusBadge('Not Created')}</span>`;
+
+    const paymentLink = latestInvoice
+      ? `<span class="cell-link" data-nav="invoiceDetail" data-id="${latestInvoice.id}">${paid?statusBadge('Paid'):statusBadge('Open')}</span>`
+      : `<span class="cell-link" data-nav="salesOrderDetail" data-id="${o.id}">${statusBadge('Open')}</span>`;
+
+    return `<tr>
+      <td><span class="cell-link" data-nav="salesOrderDetail" data-id="${o.id}">${o.id}</span></td>
+      <td>${escapeHtml(custName(o.customerId))}</td><td>${fmtDate(o.createdAt)}</td><td>${fmtMoney(o.net,o.currency)}</td>
+      <td>${deliveryLink}</td>
+      <td>${billingLink}</td>
+      <td>${paymentLink}</td>
+      <td><span class="cell-link" data-nav="salesOrderDetail" data-id="${o.id}">${statusBadge(o.status)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ---------------- Reports ---------------- */
+function renderReports(){
+  const totalOrders = DB.salesOrders.length;
+  const totalSales = DB.salesOrders.reduce((s,o)=>s+o.net,0);
+  const avgOrder = totalOrders ? totalSales/totalOrders : 0;
+  const custTotals = {};
+  DB.salesOrders.forEach(o=>{ custTotals[o.customerId] = (custTotals[o.customerId]||0) + o.net; });
+  const topCustomers = Object.entries(custTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const matTotals = {};
+  DB.salesOrders.forEach(o=>{ matTotals[o.materialId] = (matTotals[o.materialId]||0) + o.quantity; });
+  const topMaterials = Object.entries(matTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxCust = Math.max(1, ...topCustomers.map(c=>c[1]));
+  const maxMat = Math.max(1, ...topMaterials.map(m=>m[1]));
+
+  const pendingDel = DB.deliveries.filter(d=>d.pgiStatus!=='Completed').length;
+  const completedDel = DB.deliveries.filter(d=>d.pgiStatus==='Completed').length;
+  const delayedDel = DB.salesOrders.filter(o=> o.availabilityCheck && o.availabilityCheck.backorderQty>0 && o.status!=='Fully Delivered' && o.status!=='Completed').length;
+
+  const totalBilling = DB.invoices.reduce((s,i)=>s+i.net,0);
+  const openInv = DB.invoices.filter(i=>i.status!=='Paid').length;
+  const paidInv = DB.invoices.filter(i=>i.status==='Paid').length;
+  const overdueInv = DB.invoices.filter(isOverdue).length;
+
+  const totalPayments = DB.payments.reduce((s,p)=>s+p.amount,0);
+  const pendingPayments = DB.invoices.filter(i=>i.status==='Open').length;
+  const partialPayments = DB.invoices.filter(i=>i.status==='Partially Paid').length;
+  const completedPayments = DB.invoices.filter(i=>i.status==='Paid').length;
+
+  return `
+    <h1 class="page-title">Reports</h1>
+    <p class="page-sub">Analytical view across sales, delivery, billing and payments.</p>
+    <div class="card"><h3>Sales Report</h3>
+      <div class="stat-line"><span class="l">Total Orders</span><span class="v">${totalOrders}</span></div>
+      <div class="stat-line"><span class="l">Total Sales</span><span class="v">${fmtMoney(totalSales)}</span></div>
+      <div class="stat-line"><span class="l">Average Order Value</span><span class="v">${fmtMoney(avgOrder)}</span></div>
+      <div class="section-title">Top Customers</div>
+      ${topCustomers.length===0? '<p class="muted">No data yet.</p>' : topCustomers.map(([id,val])=>`<div class="bar-row"><span class="name">${escapeHtml(custName(id))}</span><div class="bar-track"><div class="bar-fill" style="width:${(val/maxCust*100)}%"></div></div><span class="bar-val">${fmtMoney(val)}</span></div>`).join('')}
+      <div class="section-title">Top Materials (by Qty)</div>
+      ${topMaterials.length===0? '<p class="muted">No data yet.</p>' : topMaterials.map(([id,val])=>`<div class="bar-row"><span class="name">${escapeHtml(matName(id))}</span><div class="bar-track"><div class="bar-fill" style="width:${(val/maxMat*100)}%"></div></div><span class="bar-val">${val} units</span></div>`).join('')}
+    </div>
+    <div class="card"><h3>Delivery Report</h3>
+      <div class="stat-line"><span class="l">Pending Deliveries</span><span class="v">${pendingDel}</span></div>
+      <div class="stat-line"><span class="l">Completed Deliveries</span><span class="v">${completedDel}</span></div>
+      <div class="stat-line"><span class="l">Delayed Deliveries (Backorder)</span><span class="v">${delayedDel}</span></div>
+    </div>
+    <div class="card"><h3>Billing Report</h3>
+      <div class="stat-line"><span class="l">Total Billing</span><span class="v">${fmtMoney(totalBilling)}</span></div>
+      <div class="stat-line"><span class="l">Open Invoices</span><span class="v">${openInv}</span></div>
+      <div class="stat-line"><span class="l">Paid Invoices</span><span class="v">${paidInv}</span></div>
+      <div class="stat-line"><span class="l">Overdue Invoices</span><span class="v">${overdueInv}</span></div>
+    </div>
+    <div class="card"><h3>Payment Report</h3>
+      <div class="stat-line"><span class="l">Total Payments Received</span><span class="v">${fmtMoney(totalPayments)}</span></div>
+      <div class="stat-line"><span class="l">Pending (Open) Invoices</span><span class="v">${pendingPayments}</span></div>
+      <div class="stat-line"><span class="l">Partial Payments</span><span class="v">${partialPayments}</span></div>
+      <div class="stat-line"><span class="l">Fully Paid</span><span class="v">${completedPayments}</span></div>
+    </div>
+  `;
+}
+
+/* ---------------- Settings ---------------- */
+function renderSettings(){
+  return `
+    <h1 class="page-title">Settings</h1>
+    <p class="page-sub">Manage demo data for this simulator.</p>
+    <div class="card">
+      <h3>Demo Data</h3>
+      <p class="muted">Demo data currently ${DB.demoLoaded ? 'loaded' : 'not loaded'}. Loading demo data replaces all current data with a realistic sample O2C dataset.</p>
+      <div style="display:flex;gap:10px">
+        <button class="btn primary" id="btn-load-demo">Load Demo Data</button>
+        <button class="btn danger" id="btn-clear-demo">Clear All Data</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Application Info</h3>
+      <div class="stat-line"><span class="l">Customers</span><span class="v">${DB.customers.length}</span></div>
+      <div class="stat-line"><span class="l">Materials</span><span class="v">${DB.materials.length}</span></div>
+      <div class="stat-line"><span class="l">Sales Orders</span><span class="v">${DB.salesOrders.length}</span></div>
+      <div class="stat-line"><span class="l">Invoices</span><span class="v">${DB.invoices.length}</span></div>
+      <div class="stat-line"><span class="l">Payments</span><span class="v">${DB.payments.length}</span></div>
+    </div>
+  `;
+}
+
+/* =========================================================================
+   EVENT BINDING
+   ========================================================================= */
+function bindViewEvents(){
+  const content = document.getElementById('content');
+
+  content.querySelectorAll('[data-nav]').forEach(elm=>{
+    elm.addEventListener('click', ()=>{
+      const name = elm.dataset.nav;
+      const id = elm.dataset.id;
+      navigate(name, id ? {id} : {});
+    });
+  });
+  const backBtn = document.getElementById('btn-back');
+  if(backBtn) backBtn.addEventListener('click', goBack);
+
+  // Customers
+  const newCust = document.getElementById('btn-new-customer'); if(newCust) newCust.addEventListener('click', ()=>openCustomerForm());
+  content.querySelectorAll('[data-action=edit-customer]').forEach(b=>b.addEventListener('click', ()=>openCustomerForm(b.dataset.id)));
+  const toggleActive = document.getElementById('btn-toggle-active');
+  if(toggleActive) toggleActive.addEventListener('click', ()=>{ toggleCustomerActive(VIEW.params.id); renderView(); });
+  // Customer search: keep filtering local instead of rebinding the entire view.
+  // The old implementation called bindViewEvents() after every keystroke, which
+  // repeatedly attached click/input handlers and could make Clear behave inconsistently.
+  const custSearch = document.getElementById('cust-search');
+  const custFilter = document.getElementById('cust-filter');
+  const custClear = document.getElementById('cust-clear');
+  const custSearchBox = custSearch ? custSearch.closest('.customer-search-box') : null;
+
+  function applyCustomerSearch(){
+    if(!custSearch || !custFilter) return;
+
+    const q = custSearch.value.trim().toLowerCase();
+    const filterVal = custFilter.value;
+
+    let list = DB.customers.filter(c=>{
+      const name = String(c.name || '').toLowerCase();
+      const id = String(c.id || '').toLowerCase();
+      return !q || name.includes(q) || id.includes(q);
+    });
+
+    if(filterVal==='active') list = list.filter(c=>c.active);
+    if(filterVal==='inactive') list = list.filter(c=>!c.active);
+
+    const tbody = document.querySelector('#cust-table tbody');
+    if(tbody){
+      tbody.innerHTML = custRows(list);
+      tbody.querySelectorAll('[data-nav]').forEach(elm=>{
+        elm.addEventListener('click', ()=>{
+          const name = elm.dataset.nav;
+          const id = elm.dataset.id;
+          navigate(name, id ? {id} : {});
+        });
+      });
+      tbody.querySelectorAll('[data-action=edit-customer]').forEach(b=>{
+        b.addEventListener('click', ()=>openCustomerForm(b.dataset.id));
+      });
+    }
+
+    if(custSearchBox){
+      custSearchBox.classList.toggle('has-value', Boolean(q));
+    }
+  }
+
+  if(custSearch) custSearch.addEventListener('input', applyCustomerSearch);
+  if(custFilter) custFilter.addEventListener('change', applyCustomerSearch);
+
+  if(custClear) custClear.addEventListener('click', ()=>{
+    custSearch.value = '';
+    custFilter.value = 'all';
+    applyCustomerSearch();
+    custSearch.focus();
+  });
+
+  // Keep the clear icon in the correct initial state.
+  if(custSearchBox){
+    custSearchBox.classList.toggle('has-value', Boolean(custSearch && custSearch.value.trim()));
+  }
+
+  // Materials
+  const newMat = document.getElementById('btn-new-material'); if(newMat) newMat.addEventListener('click', ()=>openMaterialForm());
+  content.querySelectorAll('[data-action=edit-material]').forEach(b=>b.addEventListener('click', ()=>openMaterialForm(b.dataset.id)));
+  const matSearch = document.getElementById('mat-search');
+  const matClear = document.getElementById('mat-clear');
+  const matSearchBox = matSearch ? matSearch.closest('.customer-search-box') : null;
+
+  function bindMaterialRows(tbody){
+    if(!tbody) return;
+    tbody.querySelectorAll('[data-nav]').forEach(elm=>{
+      elm.addEventListener('click', ()=>{
+        const name = elm.dataset.nav;
+        const id = elm.dataset.id;
+        navigate(name, id ? {id} : {});
+      });
+    });
+    tbody.querySelectorAll('[data-action=edit-material]').forEach(b=>{
+      b.addEventListener('click', ()=>openMaterialForm(b.dataset.id));
+    });
+  }
+
+  function applyMaterialSearch(){
+    if(!matSearch) return;
+    const q = matSearch.value.trim().toLowerCase();
+    const list = DB.materials.filter(m=>{
+      const fields = [m.id,m.description,m.searchTerm,m.type,m.plant,m.category,m.baseUOM,m.salesUnit,m.storageLoc].map(v=>String(v||'').toLowerCase());
+      return !q || fields.some(v=>v.includes(q));
+    });
+    const tbody = document.querySelector('#mat-table tbody');
+    if(tbody){
+      tbody.innerHTML = matRows(list);
+      bindMaterialRows(tbody);
+    }
+    if(matSearchBox){
+      matSearchBox.classList.toggle('has-value', Boolean(q));
+    }
+  }
+  if(matSearch) matSearch.addEventListener('input', applyMaterialSearch);
+  if(matClear) matClear.addEventListener('click', ()=>{
+    if(!matSearch) return;
+    matSearch.value='';
+    applyMaterialSearch();
+    matSearch.focus();
+  });
+  if(matSearchBox){
+    matSearchBox.classList.toggle('has-value', Boolean(matSearch && matSearch.value.trim()));
+  }
+
+  // Inquiries
+  const newInq = document.getElementById('btn-new-inquiry'); if(newInq) newInq.addEventListener('click', openInquiryForm);
+  content.querySelectorAll('[data-action=convert-inquiry]').forEach(b=>b.addEventListener('click', ()=>{
+    const inq = DB.inquiries.find(i=>i.id===b.dataset.id);
+    const mat = findMaterial(inq.materialId);
+    confirmDialog(`Convert Inquiry ${inq.id} to a Quotation? Customer and material details will be copied automatically.`, ()=>{
+      const qt = convertInquiryToQuotation(inq.id, {unitPrice: mat.standardPrice, discountPct:0, taxPct:18, paymentTerms:'Z030', incoterms:INCOTERMS[0], currency:'INR'});
+      toast('Quotation '+qt.id+' created from '+inq.id+'.','success');
+      navigate('quotationDetail', {id: qt.id});
+    }, {confirmLabel:'Convert to Quotation'});
+  }));
+
+  // Quotations
+  const newQt = document.getElementById('btn-new-quotation'); if(newQt) newQt.addEventListener('click', openQuotationForm);
+  content.querySelectorAll('[data-action=accept-quotation]').forEach(b=>b.addEventListener('click', ()=>{ setQuotationStatus(b.dataset.id,'Accepted'); toast('Quotation '+b.dataset.id+' accepted.','success'); renderView(); }));
+  content.querySelectorAll('[data-action=convert-quotation]').forEach(b=>b.addEventListener('click', ()=>{
+    const qt = DB.quotations.find(q=>q.id===b.dataset.id);
+    confirmDialog(`Create a Sales Order from Quotation ${qt.id}? Pricing and customer data will be copied.`, ()=>{
+      const so = convertQuotationToSalesOrder(qt.id, {requestedDeliveryDate: addDays(todayISO(),7)});
+      toast('Sales Order '+so.id+' created from '+qt.id+'.','success');
+      navigate('salesOrderDetail', {id: so.id});
+    }, {confirmLabel:'Create Sales Order'});
+  }));
+
+  // Sales Orders
+  const newSO = document.getElementById('btn-new-so'); if(newSO) newSO.addEventListener('click', openSalesOrderForm);
+  content.querySelectorAll('[data-action=create-delivery]').forEach(b=>b.addEventListener('click', ()=>openDeliveryForm(b.dataset.so)));
+  content.querySelectorAll('[data-action=show-docflow]').forEach(b=>b.addEventListener('click', ()=>navigate('docflow',{so:b.dataset.so})));
+
+  // Deliveries
+  const newDel = document.getElementById('btn-new-delivery'); if(newDel) newDel.addEventListener('click', ()=>openDeliveryForm());
+  content.querySelectorAll('[data-action=confirm-picking]').forEach(b=>b.addEventListener('click', ()=>{
+    const input = document.getElementById('pick-qty-'+b.dataset.id);
+    const qty = Number(input.value);
+    const res = confirmPicking(b.dataset.id, qty);
+    if(res.error){ toast(res.error,'error'); return; }
+    toast('Picking updated for '+b.dataset.id+'.','success');
+    renderView();
+  }));
+  content.querySelectorAll('[data-action=reset-picking]').forEach(b=>b.addEventListener('click', ()=>{ resetPicking(b.dataset.id); toast('Picking reset.','info'); renderView(); }));
+  content.querySelectorAll('[data-action=post-pgi]').forEach(b=>b.addEventListener('click', ()=>{
+    confirmDialog('Are you sure you want to post goods issue? This will reduce inventory and cannot be undone.', ()=>{
+      const res = postGoodsIssue(b.dataset.id);
+      if(res.error){ toast(res.error,'error'); return; }
+      toast('PGI posted. Material Document: '+res.materialDoc.id,'success');
+      renderView();
+    }, {confirmLabel:'Post Goods Issue'});
+  }));
+
+  // Billing
+  content.querySelectorAll('[data-action=create-invoice]').forEach(b=>b.addEventListener('click', ()=>{
+    const res = createInvoice(b.dataset.id);
+    if(res.error){ toast(res.error,'error'); return; }
+    toast('Invoice '+res.invoice.id+' created.','success');
+    navigate('invoiceDetail', {id: res.invoice.id});
+  }));
+
+  // Payments
+  content.querySelectorAll('[data-action=record-payment]').forEach(b=>b.addEventListener('click', ()=>openPaymentForm(b.dataset.id)));
+
+  // Document flow select
+  const dfSel = document.getElementById('docflow-so-select');
+  if(dfSel) dfSel.addEventListener('change', e=> navigate('docflow', {so: e.target.value}));
+
+  // KPI / pipeline nav
+  content.querySelectorAll('[data-nav]').forEach(elm=>{}); // already bound above generically
+
+  // Order history filters
+  const ohSearch = document.getElementById('oh-search');
+  const ohFilter = document.getElementById('oh-filter');
+  function applyOH(){
+    let list = DB.salesOrders;
+    const q = ohSearch ? ohSearch.value.toLowerCase() : '';
+    if(q) list = list.filter(o=> o.id.toLowerCase().includes(q) || custName(o.customerId).toLowerCase().includes(q));
+    const f = ohFilter ? ohFilter.value : 'all';
+    if(f==='open') list = list.filter(o=>o.status==='Created');
+    if(f==='progress') list = list.filter(o=>['Confirmed','Partially Delivered'].includes(o.status));
+    if(f==='delivered') list = list.filter(o=>o.status==='Fully Delivered');
+    if(f==='billed') list = list.filter(o=>o.status==='Billing Created');
+    if(f==='paid') list = list.filter(o=>o.status==='Completed');
+    if(f==='cancelled') list = list.filter(o=>o.status==='Cancelled');
+    document.querySelector('#oh-table tbody').innerHTML = orderHistoryRows(list);
+    bindViewEvents();
+  }
+  if(ohSearch) ohSearch.addEventListener('input', applyOH);
+  if(ohFilter) ohFilter.addEventListener('change', applyOH);
+  const ohClear = document.getElementById('oh-clear');
+  if(ohClear) ohClear.addEventListener('click', ()=>{ if(ohSearch) ohSearch.value=''; if(ohFilter) ohFilter.value='all'; applyOH(); });
+
+  // Settings
+  const loadDemoBtn = document.getElementById('btn-load-demo');
+  if(loadDemoBtn) loadDemoBtn.addEventListener('click', ()=>{
+    confirmDialog('This will replace all current data with sample demo data. Continue?', ()=>{
+      loadDemoData(); toast('Demo data loaded.','success'); navigate('dashboard');
+    }, {confirmLabel:'Load Demo Data'});
+  });
+  const clearDemoBtn = document.getElementById('btn-clear-demo');
+  if(clearDemoBtn) clearDemoBtn.addEventListener('click', ()=>{
+    confirmDialog('This will permanently delete ALL data (customers, materials, orders, invoices, payments). Continue?', ()=>{
+      clearDemoData(); toast('All data cleared.','info'); navigate('dashboard');
+    }, {confirmLabel:'Clear All Data'});
+  });
+}
+
+/* KPI / pipeline clicks (delegated at document level since dashboard re-renders) */
+document.addEventListener('click', (e)=>{
+  const navEl = e.target.closest('[data-nav]');
+  if(navEl && document.getElementById('content').contains(navEl)){
+    // handled in bindViewEvents already for elements inside content at render time;
+    // this fallback covers dynamically inserted elements like KPI cards using data-nav without data-id
+  }
+});
+
+/* ---------------- Global Search ---------------- */
+function buildSearchIndex(){
+  const idx = [];
+  DB.customers.forEach(c=> idx.push({label:c.id+' — '+c.name, view:'customerDetail', id:c.id}));
+  DB.materials.forEach(m=> idx.push({label:m.id+' — '+m.description, view:'materials', id:null}));
+  DB.inquiries.forEach(i=> idx.push({label:i.id+' — Inquiry', view:'inquiryDetail', id:i.id}));
+  DB.quotations.forEach(q=> idx.push({label:q.id+' — Quotation', view:'quotationDetail', id:q.id}));
+  DB.salesOrders.forEach(o=> idx.push({label:o.id+' — Sales Order', view:'salesOrderDetail', id:o.id}));
+  DB.deliveries.forEach(d=> idx.push({label:d.id+' — Delivery', view:'deliveryDetail', id:d.id}));
+  DB.invoices.forEach(i=> idx.push({label:i.id+' — Invoice', view:'invoiceDetail', id:i.id}));
+  DB.payments.forEach(p=> idx.push({label:p.id+' — Payment', view:'invoiceDetail', id:p.invoiceId}));
+  return idx;
+}
+function setupGlobalSearch(){
+  const input = document.getElementById('gsearch');
+  let dropdown = null;
+  input.addEventListener('input', ()=>{
+    const q = input.value.trim().toLowerCase();
+    if(dropdown){ dropdown.remove(); dropdown = null; }
+    if(!q) return;
+    SEARCH_INDEX = buildSearchIndex();
+    const matches = SEARCH_INDEX.filter(item=> item.label.toLowerCase().includes(q)).slice(0,8);
+    dropdown = document.createElement('div');
+    dropdown.style.cssText = 'position:absolute;top:38px;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:50;max-height:280px;overflow-y:auto';
+    if(matches.length===0){
+      dropdown.innerHTML = `<div style="padding:10px 14px;font-size:13px;color:var(--ink-50)">No results found.</div>`;
+    } else {
+      matches.forEach(m=>{
+        const item = document.createElement('div');
+        item.style.cssText = 'padding:9px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line)';
+        item.textContent = m.label;
+        item.addEventListener('mouseenter', ()=> item.style.background='var(--blue-10)');
+        item.addEventListener('mouseleave', ()=> item.style.background='');
+        item.addEventListener('click', ()=>{
+          navigate(m.view, m.id?{id:m.id}:{});
+          input.value=''; dropdown.remove(); dropdown=null;
+        });
+        dropdown.appendChild(item);
+      });
+    }
+    input.parentElement.appendChild(dropdown);
+  });
+  document.addEventListener('click', (e)=>{
+    if(dropdown && !input.parentElement.contains(e.target)){ dropdown.remove(); dropdown=null; }
+  });
+}
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+async function boot(){
+  document.getElementById('content').innerHTML = `<div class="empty-state"><div class="ic">⏳</div><div class="msg">Loading SAP SD Order-to-Cash Simulator...</div></div>`;
+  const loaded = await loadDB();
+  DB = loaded || emptyDB();
+  if(!loaded){ loadDemoData(); }
+  try{ history.replaceState(VIEW, ''); }catch(e){}
+  renderNav();
+  renderView();
+  setupGlobalSearch();
+}
+boot();
+</script>
+</body>
+</html>
